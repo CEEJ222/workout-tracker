@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens ported from the daily-page wireframe so Tailwind utilities
+ * (bg-card, text-ink, border-line, rounded-card, …) match the intended look.
+ */
+@theme {
+  --color-ink: #1c1c1e;
+  --color-ink-2: #6b6b70;
+  --color-ink-3: #9a9aa0;
+  --color-line: #d9d9de;
+  --color-line-2: #e8e8ec;
+  --color-bg: #f3f3f5;
+  --color-card: #ffffff;
+  --color-field: #fbfbfc;
+  --color-amber: #b8791f;
+  --color-amber-bg: #f6ecd9;
+
+  --radius-card: 12px;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
