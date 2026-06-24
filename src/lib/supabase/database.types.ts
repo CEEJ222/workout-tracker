@@ -315,7 +315,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      start_session: { Args: { p_template_id: string }; Returns: string }
     }
     Enums: {
       block_type: "circuit" | "superset" | "single"
