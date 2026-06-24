@@ -53,11 +53,10 @@ export async function completeWorkout(formData: FormData) {
   await requireUser();
   const supabase = await createClient();
 
-  const { error } = await supabase
-    .from("sessions")
-    .update({ status: "completed", completed_at: new Date().toISOString() })
-    .eq("id", sessionId)
-    .eq("status", "in_progress"); // no-op if already completed
+  // Atomically finalize the session and run the pain-aware progression.
+  const { error } = await supabase.rpc("complete_session", {
+    p_session_id: sessionId,
+  });
   if (error) throw error;
 
   redirect("/");

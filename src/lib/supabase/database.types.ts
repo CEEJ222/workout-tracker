@@ -316,6 +316,7 @@ export type Database = {
     }
     Functions: {
       start_session: { Args: { p_template_id: string }; Returns: string }
+      complete_session: { Args: { p_session_id: string }; Returns: undefined }
     }
     Enums: {
       block_type: "circuit" | "superset" | "single"
