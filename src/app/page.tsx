@@ -22,14 +22,22 @@ export default async function Home() {
             Pick a day
           </h1>
         </div>
-        <form action={logout}>
-          <button
-            type="submit"
+        <div className="flex items-center gap-1.5">
+          <Link
+            href="/history"
             className="rounded-lg border border-line bg-field px-2.5 py-1.5 text-[12px] text-ink-2"
           >
-            Sign out
-          </button>
-        </form>
+            History
+          </Link>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="rounded-lg border border-line bg-field px-2.5 py-1.5 text-[12px] text-ink-2"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
       </header>
 
       <main className="flex flex-1 flex-col gap-2.5 px-3 py-4">
