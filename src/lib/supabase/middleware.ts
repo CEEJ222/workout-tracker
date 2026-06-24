@@ -1,12 +1,23 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// Routes reachable without a session. Everything else requires auth.
+const PUBLIC_PATHS = ["/login"];
+
+function isPublic(pathname: string): boolean {
+  return PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
+
 /**
- * Refreshes the Supabase auth session on every request and keeps the auth
- * cookies in sync between the browser and server.
+ * Refreshes the Supabase auth session on every request, keeps the auth cookies
+ * in sync between browser and server, and gates navigation:
+ *   - no session on a protected route  → redirect to /login
+ *   - a session on /login              → redirect to /
  *
- * Phase 1: session refresh only. Route protection (redirecting unauthenticated
- * users to /login) is added in Phase 4 once auth exists.
+ * Any cookies Supabase set while refreshing the token are copied onto the
+ * redirect response so the refreshed session isn't dropped.
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -38,7 +49,37 @@ export async function updateSession(request: NextRequest) {
 
   // IMPORTANT: do not run code between createServerClient and getUser() —
   // it can cause hard-to-debug session refresh issues.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+
+  // Unauthenticated request to a protected route → send to /login.
+  if (!user && !isPublic(pathname)) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/login";
+    return copyAuthCookies(
+      supabaseResponse,
+      NextResponse.redirect(redirectUrl),
+    );
+  }
+
+  // Authenticated user hitting /login → send to the app.
+  if (user && isPublic(pathname)) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/";
+    return copyAuthCookies(
+      supabaseResponse,
+      NextResponse.redirect(redirectUrl),
+    );
+  }
 
   return supabaseResponse;
+}
+
+/** Carry the session cookies from the refresh response onto a redirect. */
+function copyAuthCookies(from: NextResponse, to: NextResponse): NextResponse {
+  from.cookies.getAll().forEach((cookie) => to.cookies.set(cookie));
+  return to;
 }
