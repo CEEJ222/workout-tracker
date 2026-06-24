@@ -39,3 +39,26 @@ export async function startSession(formData: FormData) {
 
   redirect(`/session/${sessionId}`);
 }
+
+/**
+ * Complete a workout: stamp completed_at and flip status to completed.
+ * Phase 7 will additionally run the pain-aware progression here.
+ */
+export async function completeWorkout(formData: FormData) {
+  const sessionId = String(formData.get("sessionId") ?? "");
+  if (!sessionId) {
+    throw new Error("Missing session id");
+  }
+
+  await requireUser();
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("sessions")
+    .update({ status: "completed", completed_at: new Date().toISOString() })
+    .eq("id", sessionId)
+    .eq("status", "in_progress"); // no-op if already completed
+  if (error) throw error;
+
+  redirect("/");
+}
