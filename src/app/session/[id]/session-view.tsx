@@ -193,6 +193,11 @@ export function SessionView({ detail }: { detail: SessionDetail }) {
     setNote,
   };
 
+  // The day's primary compound: the first exercise of the first non-warm-up
+  // (non-circuit) block. Gets a one-line ramp-up hint. null when the day has no
+  // working block, or its first working movement isn't a loaded compound.
+  const rampUpId = rampUpExerciseId(detail.blocks);
+
   return (
     <div className="mx-auto flex min-h-dvh max-w-[420px] flex-col">
       <header className="sticky top-0 z-10 border-b border-line bg-card px-[18px] pb-3.5 pt-4">
@@ -223,6 +228,7 @@ export function SessionView({ detail }: { detail: SessionDetail }) {
           <BlockGroup
             key={block.id}
             block={block}
+            rampUpId={rampUpId}
             exState={exState}
             setDone={setDone}
             handlers={handlers}
@@ -283,11 +289,13 @@ type Handlers = {
 
 function BlockGroup({
   block,
+  rampUpId,
   exState,
   setDone,
   handlers,
 }: {
   block: SessionBlock;
+  rampUpId: string | null;
   exState: Record<string, ExUiState>;
   setDone: Record<string, boolean>;
   handlers: Handlers;
@@ -327,6 +335,7 @@ function BlockGroup({
               card={card}
               superset={block.type === "superset"}
               supersetLabels={supersetLabels}
+              showRampUp={card.templateExerciseId === rampUpId}
               ex={exState[card.sessionExerciseId]}
               setDone={setDone}
               handlers={handlers}
@@ -422,6 +431,7 @@ function ExerciseCardView({
   card,
   superset,
   supersetLabels,
+  showRampUp,
   ex,
   setDone,
   handlers,
@@ -429,6 +439,7 @@ function ExerciseCardView({
   card: ExerciseCard;
   superset: boolean;
   supersetLabels?: string[];
+  showRampUp: boolean;
   ex: ExUiState;
   setDone: Record<string, boolean>;
   handlers: Handlers;
@@ -460,6 +471,12 @@ function ExerciseCardView({
           </div>
           {rest && (
             <div className="mt-1 text-[11px] text-ink-3">{rest.text}</div>
+          )}
+          {showRampUp && (
+            <div className="mt-1 text-[11px] italic leading-snug text-ink-3">
+              Ramp up first: ~2 feeder sets before your working sets (e.g. ~50% ×
+              8, then ~70% × 5).
+            </div>
           )}
         </div>
         {card.suggestedWeight != null && (
@@ -675,6 +692,21 @@ function repRange(s: { targetRepsLow: number; targetRepsHigh: number }): string 
   return s.targetRepsLow === s.targetRepsHigh
     ? `${s.targetRepsLow}`
     : `${s.targetRepsLow}–${s.targetRepsHigh}`;
+}
+
+/**
+ * The day's primary compound — the first exercise of the first non-warm-up
+ * block (lowest-sort_order block whose type isn't `circuit`). Blocks and their
+ * exercises arrive already sorted from getSessionDetail. Returns its
+ * templateExerciseId, or null when there's no working block or that first
+ * movement isn't a loaded compound (auto_load), so the ramp-up hint stays off
+ * light openers. Display-only: ramp-up sets are never stored or logged.
+ */
+function rampUpExerciseId(blocks: SessionBlock[]): string | null {
+  const firstWorking = blocks.find((b) => b.type !== "circuit");
+  const opener = firstWorking?.exercises[0];
+  if (!opener || !opener.autoLoad) return null;
+  return opener.templateExerciseId;
 }
 
 function formatTarget(card: ExerciseCard): string {
