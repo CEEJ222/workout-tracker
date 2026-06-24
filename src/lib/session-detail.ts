@@ -30,6 +30,10 @@ export type ExerciseCard = {
   targetSets: number;
   targetRepsLow: number;
   targetRepsHigh: number;
+  // Optional RIR (reps-in-reserve) guidance; null for warm-ups, core, carries,
+  // and cuff/scapular work that intentionally carry no RIR target.
+  targetRirLow: number | null;
+  targetRirHigh: number | null;
   // Suggested weight: from progress, else the template seed.
   suggestedWeight: number | null;
   suggestedIsEstimate: boolean;
@@ -89,6 +93,7 @@ export async function getSessionDetail(
           `id, type, label, sort_order,
            template_exercises (
              id, pair_label, target_sets, target_reps_low, target_reps_high,
+             target_rir_low, target_rir_high,
              per_side, seed_weight, seed_is_estimate, sort_order,
              exercises ( id, name, description, cues, log_type, auto_load, rest_seconds )
            )`,
@@ -173,6 +178,8 @@ export async function getSessionDetail(
             targetSets: te.target_sets,
             targetRepsLow: te.target_reps_low,
             targetRepsHigh: te.target_reps_high,
+            targetRirLow: te.target_rir_low,
+            targetRirHigh: te.target_rir_high,
             suggestedWeight,
             suggestedIsEstimate,
             suggestedHeld,
