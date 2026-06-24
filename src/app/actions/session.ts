@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 
@@ -60,4 +61,28 @@ export async function completeWorkout(formData: FormData) {
   if (error) throw error;
 
   redirect("/");
+}
+
+/**
+ * Discard an in-progress session: delete it (cascading to its session_exercises
+ * + session_sets) so that day returns to a not-started card. Guarded to
+ * in_progress only, so completed history can never be deleted this way.
+ */
+export async function discardSession(formData: FormData) {
+  const sessionId = String(formData.get("sessionId") ?? "");
+  if (!sessionId) {
+    throw new Error("Missing session id");
+  }
+
+  await requireUser();
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("sessions")
+    .delete()
+    .eq("id", sessionId)
+    .eq("status", "in_progress");
+  if (error) throw error;
+
+  revalidatePath("/");
 }

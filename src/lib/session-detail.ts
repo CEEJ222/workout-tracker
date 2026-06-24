@@ -24,6 +24,7 @@ export type ExerciseCard = {
   cues: string[];
   logType: LogType;
   autoLoad: boolean;
+  restSeconds: number | null;
   pairLabel: string | null;
   perSide: boolean;
   targetSets: number;
@@ -89,7 +90,7 @@ export async function getSessionDetail(
            template_exercises (
              id, pair_label, target_sets, target_reps_low, target_reps_high,
              per_side, seed_weight, seed_is_estimate, sort_order,
-             exercises ( id, name, description, cues, log_type, auto_load )
+             exercises ( id, name, description, cues, log_type, auto_load, rest_seconds )
            )`,
         )
         .eq("template_id", session.template_id)
@@ -166,6 +167,7 @@ export async function getSessionDetail(
             cues: exercise.cues,
             logType: exercise.log_type,
             autoLoad: exercise.auto_load,
+            restSeconds: exercise.rest_seconds,
             pairLabel: te.pair_label,
             perSide: te.per_side,
             targetSets: te.target_sets,

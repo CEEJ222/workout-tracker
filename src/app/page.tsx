@@ -1,15 +1,25 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
 import { logout } from "@/lib/auth/actions";
-import { getTemplates, getInProgressSessions } from "@/lib/queries";
+import {
+  getMesocycles,
+  getActiveMesocycleId,
+  getTemplates,
+  getInProgressSessions,
+} from "@/lib/queries";
 import { startSession } from "@/app/actions/session";
+import { DiscardButton } from "@/app/discard-button";
+import { BlockSwitcher } from "@/app/block-switcher";
 
 export default async function Home() {
   await requireUser();
-  const [templates, inProgress] = await Promise.all([
-    getTemplates(),
+  const [mesocycles, activeMesocycleId, inProgress] = await Promise.all([
+    getMesocycles(),
+    getActiveMesocycleId(),
     getInProgressSessions(),
   ]);
+  // Only the active block's three days.
+  const templates = await getTemplates(activeMesocycleId);
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-[420px] flex-col">
@@ -46,34 +56,46 @@ export default async function Home() {
             <div className="mx-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-3">
               In progress
             </div>
-            {inProgress.map((s) => (
-              <Link
-                key={s.id}
-                href={`/session/${s.id}`}
-                className="flex items-center justify-between rounded-card border border-line bg-amber-bg px-4 py-3"
-              >
-                <div>
-                  <div className="text-[15px] font-semibold text-ink">
-                    {s.workout_templates?.name ?? "Workout"}
-                  </div>
-                  <div className="text-[12px] text-ink-2">
-                    Started {formatDate(s.started_at)}
+            {inProgress.map((s) => {
+              const name = s.workout_templates?.name ?? "Workout";
+              return (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between gap-2 rounded-card border border-line bg-amber-bg px-4 py-3"
+                >
+                  <Link href={`/session/${s.id}`} className="min-w-0 flex-1">
+                    <div className="text-[15px] font-semibold text-ink">
+                      {name}
+                    </div>
+                    <div className="text-[12px] text-ink-2">
+                      Started {formatDate(s.started_at)}
+                    </div>
+                  </Link>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Link
+                      href={`/session/${s.id}`}
+                      className="text-[13px] font-medium text-amber"
+                    >
+                      Resume →
+                    </Link>
+                    <DiscardButton sessionId={s.id} label={name} />
                   </div>
                 </div>
-                <span className="text-[13px] font-medium text-amber">
-                  Resume →
-                </span>
-              </Link>
-            ))}
+              );
+            })}
           </section>
         )}
 
+        <BlockSwitcher
+          mesocycles={mesocycles}
+          activeId={activeMesocycleId}
+          hasInProgress={inProgress.length > 0}
+        />
+
         <section className="flex flex-col gap-2.5">
-          {inProgress.length > 0 && (
-            <div className="mx-1.5 mt-2 text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              Start a day
-            </div>
-          )}
+          <div className="mx-1.5 mt-1 text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            Start a day
+          </div>
           {templates.map((t) => {
             const [day, focus] = splitName(t.name);
             return (

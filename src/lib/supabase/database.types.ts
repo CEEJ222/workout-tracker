@@ -23,6 +23,7 @@ export type Database = {
           increment_lb: number | null
           log_type: Database["public"]["Enums"]["log_type"]
           name: string
+          rest_seconds: number | null
         }
         Insert: {
           auto_load?: boolean
@@ -32,6 +33,7 @@ export type Database = {
           increment_lb?: number | null
           log_type: Database["public"]["Enums"]["log_type"]
           name: string
+          rest_seconds?: number | null
         }
         Update: {
           auto_load?: boolean
@@ -41,6 +43,25 @@ export type Database = {
           increment_lb?: number | null
           log_type?: Database["public"]["Enums"]["log_type"]
           name?: string
+          rest_seconds?: number | null
+        }
+        Relationships: []
+      }
+      mesocycles: {
+        Row: {
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          id?: string
+          name?: string
+          sort_order?: number
         }
         Relationships: []
       }
@@ -292,31 +313,65 @@ export type Database = {
           },
         ]
       }
+      user_settings: {
+        Row: {
+          active_mesocycle_id: string | null
+          user_id: string
+        }
+        Insert: {
+          active_mesocycle_id?: string | null
+          user_id: string
+        }
+        Update: {
+          active_mesocycle_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_settings_active_mesocycle_id_fkey"
+            columns: ["active_mesocycle_id"]
+            isOneToOne: false
+            referencedRelation: "mesocycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workout_templates: {
         Row: {
           id: string
+          mesocycle_id: string
           name: string
           sort_order: number
         }
         Insert: {
           id?: string
+          mesocycle_id: string
           name: string
           sort_order?: number
         }
         Update: {
           id?: string
+          mesocycle_id?: string
           name?: string
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "workout_templates_mesocycle_id_fkey"
+            columns: ["mesocycle_id"]
+            isOneToOne: false
+            referencedRelation: "mesocycles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      start_session: { Args: { p_template_id: string }; Returns: string }
       complete_session: { Args: { p_session_id: string }; Returns: undefined }
+      start_session: { Args: { p_template_id: string }; Returns: string }
     }
     Enums: {
       block_type: "circuit" | "superset" | "single"

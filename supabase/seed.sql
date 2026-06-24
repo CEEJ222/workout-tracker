@@ -233,6 +233,45 @@ begin
    'done_check', false, null);
 
   -- ════════════════════════════════════════════════════════════════════════
+  -- REST GUIDANCE (rest_seconds) — seeded by the role each movement plays, not
+  -- per placement, since every exercise here fills exactly one role. Display
+  -- only; the seconds→label formatting lives in formatRest() (src/lib/rest.ts).
+  -- Warm-up circuit items keep the column default (null) → no rest line shown.
+  -- ════════════════════════════════════════════════════════════════════════
+
+  -- Primary lifts: heavy, full recovery (~2–3 min).
+  update exercises set rest_seconds = 150 where name in (
+    'Trap-bar deadlift',
+    'Rear-foot-elevated split squat',
+    'B-stance / single-leg RDL (heavier)'
+  );
+
+  -- Superset members (A1/A2, B1/B2, C1/C2): the partner set IS the rest, so the
+  -- daily page renders these as "Alternate … · ~60–90s" rather than a flat line.
+  update exercises set rest_seconds = 75 where name in (
+    'Landmine press', 'Batwing row',
+    'Neutral-grip pull-up', 'Neutral-grip DB bench / low incline',
+    'Single-arm DB row', 'Incline DB press'
+  );
+
+  -- Loaded accessories that still auto-progress weight: ~90s.
+  update exercises set rest_seconds = 90 where name in (
+    'B-stance single-leg RDL',
+    'Barbell / B-stance hip thrust'
+  );
+
+  -- Cuff / scapular / core / carries / balance — everything with auto_load =
+  -- false, excluding the warm-up circuit (which stays null): ~45s.
+  update exercises
+    set rest_seconds = 45
+    where auto_load = false
+      and rest_seconds is null
+      and name not in (
+        'Thoracic ext + open-book', 'Wall slide (protract)',
+        'Prone Y raise', 'Cable external rotation'
+      );
+
+  -- ════════════════════════════════════════════════════════════════════════
   -- TEMPLATES
   -- ════════════════════════════════════════════════════════════════════════
   insert into workout_templates (name, sort_order) values ('Day A · Hinge', 1) returning id into t_a;

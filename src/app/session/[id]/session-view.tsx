@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { completeWorkout } from "@/app/actions/session";
+import { formatRest } from "@/lib/rest";
 import type {
   SessionDetail,
   SessionBlock,
@@ -14,6 +15,13 @@ import type { Database } from "@/lib/supabase/database.types";
 type PainSeverity = Database["public"]["Enums"]["pain_severity"];
 
 type ExUiState = { done: boolean; note: string; pain: PainSeverity | null };
+
+type RestTimer = {
+  key: number; // bumped on (re)start so the bar remounts and re-ticks
+  startedAt: number; // epoch ms; remaining is always derived from this
+  durationSeconds: number;
+  exerciseName: string;
+};
 
 export function SessionView({ detail }: { detail: SessionDetail }) {
   const supabase = useMemo(() => createClient(), []);
@@ -37,6 +45,63 @@ export function SessionView({ detail }: { detail: SessionDetail }) {
       allCards.flatMap((c) => c.sets.map((s) => [s.id, s.done])),
     ),
   );
+
+  // ── Rest timer (Phase 9) ──────────────────────────────────────────────────
+  // A pure UI layer, fully decoupled from logging: only one rest runs at a
+  // time, its state lives here in React (no storage), and every browser-API
+  // call below is wrapped so a timer failure can never block or corrupt a
+  // set/session write. Remaining time is derived from `startedAt`, never from a
+  // tick that pauses when the tab backgrounds.
+  const [restTimer, setRestTimer] = useState<RestTimer | null>(null);
+  // AudioContext, unlocked on the user's tap (so the end-of-rest beep can play
+  // even though it fires outside a gesture). Browsers may still block it — the
+  // visible timer is the always-present fallback.
+  const audioRef = useRef<AudioContext | null>(null);
+
+  function primeAudio() {
+    try {
+      const Ctx =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+      if (!Ctx) return;
+      audioRef.current ??= new Ctx();
+      if (audioRef.current.state === "suspended") void audioRef.current.resume();
+    } catch {
+      /* audio is best-effort */
+    }
+  }
+
+  function startRestTimer(card: ExerciseCard) {
+    if (card.restSeconds == null) return; // warm-up / no guidance → no timer
+    try {
+      primeAudio();
+      setRestTimer({
+        key: Date.now(),
+        startedAt: Date.now(),
+        durationSeconds: card.restSeconds,
+        exerciseName: card.name,
+      });
+    } catch {
+      /* never let a timer hiccup interfere with logging */
+    }
+  }
+
+  // Fires once when a rest reaches zero: sound + vibration where supported,
+  // each guarded independently; the bar's "Rest's up" state is the silent
+  // fallback that always shows.
+  function fireRestCue() {
+    try {
+      if (audioRef.current) playBeep(audioRef.current);
+    } catch {
+      /* ignore */
+    }
+    try {
+      navigator.vibrate?.([120, 60, 120]);
+    } catch {
+      /* ignore */
+    }
+  }
 
   // Progress counts working exercises only (warm-up circuit excluded).
   const workingIds = useMemo(
@@ -87,6 +152,9 @@ export function SessionView({ detail }: { detail: SessionDetail }) {
     const nextMap = { ...setDone, [setId]: next };
     setSetDone(nextMap);
     persistSet(setId, { done: next });
+
+    // Checking a set off starts the rest countdown (un-checking does not).
+    if (next) startRestTimer(card);
 
     // An exercise card is "done" once all its sets are done.
     const allDone = card.sets.every((s) => nextMap[s.id]);
@@ -179,6 +247,20 @@ export function SessionView({ detail }: { detail: SessionDetail }) {
         )}
       </main>
 
+      {restTimer && (
+        <RestTimerBar
+          key={restTimer.key}
+          timer={restTimer}
+          onComplete={fireRestCue}
+          onReset={() =>
+            setRestTimer((t) =>
+              t ? { ...t, key: Date.now(), startedAt: Date.now() } : t,
+            )
+          }
+          onDismiss={() => setRestTimer(null)}
+        />
+      )}
+
       {saveError && (
         <div className="sticky bottom-0 bg-amber px-4 py-2 text-center text-[12px] text-white">
           Couldn&rsquo;t save a change — check your connection.
@@ -210,6 +292,15 @@ function BlockGroup({
   setDone: Record<string, boolean>;
   handlers: Handlers;
 }) {
+  // The pair labels (e.g. ["A1", "A2"]) for a superset block — used to render
+  // each member's rest as "Alternate A1/A2 · …" instead of a flat rest line.
+  const supersetLabels =
+    block.type === "superset"
+      ? block.exercises
+          .map((e) => e.pairLabel)
+          .filter((l): l is string => l != null)
+      : undefined;
+
   return (
     <section>
       <div className="mx-1.5 mb-2 mt-[18px] flex items-center gap-2 text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -235,6 +326,7 @@ function BlockGroup({
               key={card.sessionExerciseId}
               card={card}
               superset={block.type === "superset"}
+              supersetLabels={supersetLabels}
               ex={exState[card.sessionExerciseId]}
               setDone={setDone}
               handlers={handlers}
@@ -329,12 +421,14 @@ function CircuitRow({
 function ExerciseCardView({
   card,
   superset,
+  supersetLabels,
   ex,
   setDone,
   handlers,
 }: {
   card: ExerciseCard;
   superset: boolean;
+  supersetLabels?: string[];
   ex: ExUiState;
   setDone: Record<string, boolean>;
   handlers: Handlers;
@@ -343,6 +437,7 @@ function ExerciseCardView({
   const [openNote, setOpenNote] = useState(false);
   const weighted = card.logType !== "done_check";
   const hasMarker = ex.pain != null || ex.note.length > 0;
+  const rest = formatRest(card.restSeconds, superset ? supersetLabels : null);
 
   return (
     <div
@@ -363,6 +458,9 @@ function ExerciseCardView({
           <div className="mt-0.5 text-[12px] text-ink-2">
             {formatTarget(card)}
           </div>
+          {rest && (
+            <div className="mt-1 text-[11px] text-ink-3">{rest.text}</div>
+          )}
         </div>
         {card.suggestedWeight != null && (
           <div className="shrink-0 text-right">
@@ -603,4 +701,132 @@ function formatDate(iso: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+// ── Rest timer bar (Phase 9) ─────────────────────────────────────────────────
+// Remounted on every (re)start via a `key`, so its state initialises fresh. The
+// remaining time is recomputed from `startedAt` on each tick and whenever the
+// tab becomes visible again — a backgrounded/locked screen that throttles the
+// interval can't make it drift. `onComplete` fires exactly once at zero.
+function RestTimerBar({
+  timer,
+  onComplete,
+  onReset,
+  onDismiss,
+}: {
+  timer: RestTimer;
+  onComplete: () => void;
+  onReset: () => void;
+  onDismiss: () => void;
+}) {
+  const { startedAt, durationSeconds, exerciseName } = timer;
+  const remainingAt = () =>
+    Math.max(0, durationSeconds - Math.floor((Date.now() - startedAt) / 1000));
+
+  const [remaining, setRemaining] = useState(remainingAt);
+
+  // Keep the cue callback current without re-running the ticking effect.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  });
+
+  useEffect(() => {
+    let fired = false;
+    const sync = () => {
+      const r = remainingAt();
+      setRemaining(r);
+      if (r <= 0 && !fired) {
+        fired = true;
+        onCompleteRef.current();
+      }
+    };
+    sync();
+    const id = setInterval(sync, 250);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+    // startedAt/durationSeconds are stable for the bar's lifetime (a reset
+    // remounts via key), so this runs once per rest.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startedAt, durationSeconds]);
+
+  const done = remaining <= 0;
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-center px-3 pb-3">
+      <div
+        className={`pointer-events-auto flex w-full max-w-[420px] items-center gap-3 rounded-card border px-4 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.18)] ${
+          done ? "border-amber bg-amber text-white" : "border-line bg-card"
+        }`}
+        role="status"
+        aria-live="polite"
+      >
+        <div className="min-w-0 flex-1">
+          <div
+            className={`text-[10px] uppercase tracking-[0.08em] ${
+              done ? "text-white/80" : "text-ink-3"
+            }`}
+          >
+            {done ? "Rest's up" : "Resting"} · {exerciseName}
+          </div>
+          <div
+            className={`font-mono text-[22px] font-semibold leading-tight tabular-nums ${
+              done ? "text-white" : "text-ink"
+            }`}
+          >
+            {formatClock(remaining)}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onReset}
+          className={`rounded-lg border px-3 py-1.5 text-[12px] font-medium ${
+            done
+              ? "border-white/60 text-white"
+              : "border-line bg-field text-ink-2"
+          }`}
+        >
+          Reset
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className={`rounded-lg border px-3 py-1.5 text-[12px] font-medium ${
+            done ? "border-white bg-white text-amber" : "border-ink bg-ink text-white"
+          }`}
+        >
+          {done ? "Dismiss" : "Skip"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function formatClock(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+// A short, soft beep via Web Audio. The context is unlocked on the user's tap
+// (primeAudio) so this can sound when the rest ends outside a gesture.
+function playBeep(ctx: AudioContext): void {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.type = "sine";
+  osc.frequency.value = 880;
+  const t = ctx.currentTime;
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.2, t + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+  osc.start(t);
+  osc.stop(t + 0.45);
 }
