@@ -227,6 +227,8 @@ export type Database = {
           sort_order: number
           target_reps_high: number
           target_reps_low: number
+          target_rir_high: number | null
+          target_rir_low: number | null
           target_sets: number
         }
         Insert: {
@@ -240,6 +242,8 @@ export type Database = {
           sort_order?: number
           target_reps_high: number
           target_reps_low: number
+          target_rir_high?: number | null
+          target_rir_low?: number | null
           target_sets: number
         }
         Update: {
@@ -253,6 +257,8 @@ export type Database = {
           sort_order?: number
           target_reps_high?: number
           target_reps_low?: number
+          target_rir_high?: number | null
+          target_rir_low?: number | null
           target_sets?: number
         }
         Relationships: [

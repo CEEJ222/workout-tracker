@@ -682,7 +682,23 @@ function formatTarget(card: ExerciseCard): string {
     card.targetRepsLow === card.targetRepsHigh
       ? `${card.targetRepsLow}`
       : `${card.targetRepsLow}–${card.targetRepsHigh}`;
-  return `${card.targetSets} × ${reps}${card.perSide ? " / side" : ""}`;
+  const base = `${card.targetSets} × ${reps}${card.perSide ? " / side" : ""}`;
+  const rir = formatRir(card);
+  return rir ? `${base} · ${rir}` : base;
+}
+
+/**
+ * RIR (reps-in-reserve) guidance, e.g. "1–2 RIR" or "2 RIR". Returns null when
+ * the prescription has no RIR target (warm-ups, core, carries, cuff/scapular
+ * work) so nothing extra is rendered. Display-only — RIR is never logged.
+ */
+function formatRir(card: ExerciseCard): string | null {
+  if (card.targetRirLow == null) return null;
+  const range =
+    card.targetRirHigh == null || card.targetRirLow === card.targetRirHigh
+      ? `${card.targetRirLow}`
+      : `${card.targetRirLow}–${card.targetRirHigh}`;
+  return `${range} RIR`;
 }
 
 function parseWeight(v: string): number | null {
