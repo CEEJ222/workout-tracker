@@ -12,6 +12,7 @@ export type SessionSetState = {
   targetRepsHigh: number;
   actualWeight: number | null;
   actualReps: number | null;
+  actualRir: number | null;
   done: boolean;
 };
 
@@ -104,7 +105,7 @@ export async function getSessionDetail(
         .from("session_exercises")
         .select(
           `id, template_exercise_id, note, pain_severity, done,
-           session_sets ( id, set_number, target_reps_low, target_reps_high, actual_weight, actual_reps, done )`,
+           session_sets ( id, set_number, target_reps_low, target_reps_high, actual_weight, actual_reps, actual_rir, done )`,
         )
         .eq("session_id", sessionId),
       supabase
@@ -155,6 +156,7 @@ export async function getSessionDetail(
               targetRepsHigh: s.target_reps_high,
               actualWeight: s.actual_weight,
               actualReps: s.actual_reps,
+              actualRir: s.actual_rir,
               done: s.done,
             }));
 

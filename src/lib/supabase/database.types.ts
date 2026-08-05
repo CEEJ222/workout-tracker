@@ -49,16 +49,19 @@ export type Database = {
       }
       mesocycles: {
         Row: {
+          archived_at: string | null
           id: string
           name: string
           sort_order: number
         }
         Insert: {
+          archived_at?: string | null
           id?: string
           name: string
           sort_order?: number
         }
         Update: {
+          archived_at?: string | null
           id?: string
           name?: string
           sort_order?: number
@@ -110,6 +113,7 @@ export type Database = {
       session_sets: {
         Row: {
           actual_reps: number | null
+          actual_rir: number | null
           actual_weight: number | null
           done: boolean
           id: string
@@ -120,6 +124,7 @@ export type Database = {
         }
         Insert: {
           actual_reps?: number | null
+          actual_rir?: number | null
           actual_weight?: number | null
           done?: boolean
           id?: string
@@ -130,6 +135,7 @@ export type Database = {
         }
         Update: {
           actual_reps?: number | null
+          actual_rir?: number | null
           actual_weight?: number | null
           done?: boolean
           id?: string

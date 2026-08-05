@@ -3,13 +3,17 @@ import { getUser } from "@/lib/auth/session";
 
 /**
  * The training blocks (mesocycles) the current user can see, in order. RLS
- * scopes this to their own blocks plus any global ones — no app-side filtering.
+ * scopes this to their own blocks plus any global ones; we additionally hide
+ * soft-archived blocks (archived_at is not null) so the block switcher only ever
+ * lists active programs. Past sessions of an archived block still render — the
+ * history read path doesn't go through here.
  */
 export async function getMesocycles() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("mesocycles")
     .select("id, name, sort_order")
+    .is("archived_at", null)
     .order("sort_order")
     .order("id");
   if (error) throw error;
@@ -37,11 +41,13 @@ export async function getActiveMesocycleId(): Promise<string> {
     return settings.active_mesocycle_id;
   }
 
-  // No active block chosen yet → default to the lowest-sort_order visible block
-  // (ordered by id as a stable tiebreaker).
+  // No active block chosen yet → default to the lowest-sort_order visible,
+  // non-archived block (ordered by id as a stable tiebreaker). Filtering on
+  // archived_at here keeps a first-time user off an archived program.
   const { data: first, error } = await supabase
     .from("mesocycles")
     .select("id")
+    .is("archived_at", null)
     .order("sort_order")
     .order("id")
     .limit(1)

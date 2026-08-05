@@ -447,8 +447,20 @@ function ExerciseCardView({
   const [openCues, setOpenCues] = useState(false);
   const [openNote, setOpenNote] = useState(false);
   const weighted = card.logType !== "done_check";
+  // Show a per-set actual-RIR input only when this prescription carries a RIR
+  // target (working lifts). Warm-ups / core / carries have targetRirLow == null.
+  const showRir = card.targetRirLow != null;
   const hasMarker = ex.pain != null || ex.note.length > 0;
   const rest = formatRest(card.restSeconds, superset ? supersetLabels : null);
+  // Static class literals (all four variants spelled out) so Tailwind's
+  // compile-time scan keeps them — a template-built arbitrary value gets purged.
+  const setGridClass = weighted
+    ? showRir
+      ? "grid-cols-[42px_1fr_46px_72px_44px_28px]"
+      : "grid-cols-[42px_1fr_46px_72px_28px]"
+    : showRir
+      ? "grid-cols-[42px_1fr_44px_28px]"
+      : "grid-cols-[42px_1fr_28px]";
 
   return (
     <div
@@ -519,11 +531,7 @@ function ExerciseCardView({
         {card.sets.map((s) => (
           <div
             key={s.id}
-            className={`grid items-center gap-2 border-t border-line-2 py-1.5 first:border-t-0 ${
-              weighted
-                ? "grid-cols-[42px_1fr_46px_72px_28px]"
-                : "grid-cols-[42px_1fr_28px]"
-            }`}
+            className={`grid items-center gap-2 border-t border-line-2 py-1.5 first:border-t-0 ${setGridClass}`}
           >
             <span className="text-[11px] text-ink-3">Set {s.setNumber}</span>
             <span className="text-[13px] text-ink-2">
@@ -563,6 +571,21 @@ function ExerciseCardView({
                   className="w-full rounded-lg border border-dashed border-line bg-field px-1.5 py-1.5 text-center text-[13px]"
                 />
               </>
+            )}
+            {showRir && (
+              <input
+                type="number"
+                inputMode="numeric"
+                defaultValue={s.actualRir ?? ""}
+                placeholder={String(card.targetRirLow ?? "")}
+                onBlur={(e) =>
+                  handlers.persistSet(s.id, {
+                    actual_rir: parseRir(e.target.value),
+                  })
+                }
+                aria-label={`set ${s.setNumber} RIR`}
+                className="w-full rounded-lg border border-dashed border-line bg-field px-1 py-1.5 text-center text-[13px]"
+              />
             )}
             <DoneBox
               checked={setDone[s.id] ?? false}
@@ -741,6 +764,15 @@ function parseWeight(v: string): number | null {
 function parseReps(v: string): number | null {
   const n = parseInt(v, 10);
   return Number.isFinite(n) ? n : null;
+}
+
+// Actual reps-in-reserve, clamped to 0–10. The column has no DB CHECK (this
+// schema models value ranges with enums, not CHECK constraints), so the range
+// is enforced here. Blank / non-numeric stays null — RIR is optional.
+function parseRir(v: string): number | null {
+  const n = parseInt(v, 10);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(10, Math.max(0, n));
 }
 
 function formatDate(iso: string): string {
