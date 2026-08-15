@@ -74,7 +74,7 @@ export function BlockSwitcher({
       </div>
 
       {pending && (
-        <div className="mt-2 rounded-card border border-amber bg-amber-bg px-3.5 py-3">
+        <div className="mt-2 rounded-card border border-line bg-card px-3.5 py-3">
           <p className="text-[12.5px] leading-snug text-ink">
             You have a workout in progress. Switching to <b>{pending.name}</b>{" "}
             only changes which days are shown here — your in-progress session is

@@ -27,7 +27,7 @@ export default async function SessionLogPage() {
               <div className="mt-0.5 text-[12px] text-ink-2">
                 {formatDate(s.completedAt)} · {s.exercisesLogged} logged
                 {s.painFlags > 0 && (
-                  <span className="text-amber">
+                  <span className="text-ink-3">
                     {" "}
                     · {s.painFlags} pain flag{s.painFlags > 1 ? "s" : ""}
                   </span>

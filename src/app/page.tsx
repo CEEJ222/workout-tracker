@@ -62,12 +62,12 @@ export default async function Home() {
     <div className="mx-auto flex min-h-dvh max-w-[420px] flex-col">
       <header className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-line bg-card px-[18px] pb-3.5 pt-4">
         <div className="min-w-0">
-          <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3">
+          <div className="text-[11px] uppercase tracking-[0.06em] text-ink-3">
             Training block
           </div>
           {/* Static text, not tabs. Each athlete has exactly one unarchived
               block, so tabs offered a choice that never existed. */}
-          <h1 className="mt-0.5 text-[17px] font-semibold leading-snug tracking-[-0.01em]">
+          <h1 className="mt-0.5 text-[17px] font-medium leading-snug tracking-[-0.01em]">
             {blockName}
           </h1>
         </div>
@@ -93,28 +93,32 @@ export default async function Home() {
       <main className="flex flex-1 flex-col gap-2.5 px-3 py-4">
         {inProgress.length > 0 && (
           <section className="flex flex-col gap-2">
-            <div className="mx-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            <div className="mx-1.5 text-[11px] uppercase tracking-[0.06em] text-ink-3">
               In progress
             </div>
             {inProgress.map((s) => {
               const name = s.workout_templates?.name ?? "Workout";
+              // A single-sided rule, not a tinted panel: urgency here is
+              // positional (it sits at the top) and structural, so it does not
+              // need to spend a colour. Left borders are never rounded — a
+              // radius on one side reads as a rendering mistake.
               return (
                 <div
                   key={s.id}
-                  className="flex items-center justify-between gap-2 rounded-card border border-line bg-amber-bg px-4 py-3"
+                  className="flex items-center justify-between gap-2 border-l-2 border-ink py-1 pl-3.5 pr-1"
                 >
                   <Link href={`/session/${s.id}`} className="min-w-0 flex-1">
-                    <div className="text-[15px] font-semibold text-ink">
+                    <div className="text-[15px] font-medium text-ink">
                       {name}
                     </div>
-                    <div className="text-[12px] text-ink-2">
+                    <div className="mt-0.5 text-[12px] text-ink-3">
                       Started {formatDate(s.started_at)}
                     </div>
                   </Link>
                   <div className="flex shrink-0 items-center gap-2">
                     <Link
                       href={`/session/${s.id}`}
-                      className="text-[13px] font-medium text-amber"
+                      className="text-[13px] text-ink-2"
                     >
                       Resume →
                     </Link>
@@ -137,75 +141,68 @@ export default async function Home() {
 
         {recommended && plan && (
           <section className="mt-1 flex flex-col gap-2">
-            <div className="mx-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            <div className="mx-1.5 text-[11px] uppercase tracking-[0.06em] text-ink-3">
               Your next workout
             </div>
-            <div className="rounded-card border-2 border-ink bg-card px-4 py-4">
+            {/* Separation by surface fill, not by an outline. A 2px ring is a
+                second visual system competing with the one filled button; the
+                fill says "this one" quietly enough. */}
+            <div className="rounded-card bg-card px-4 py-4">
               {recommendedDay && (
-                <div className="text-[11px] uppercase tracking-[0.08em] text-ink-3">
+                <div className="text-[11px] uppercase tracking-[0.06em] text-ink-3">
                   {recommendedDay}
                 </div>
               )}
-              <div className="mt-0.5 text-[21px] font-semibold leading-tight tracking-[-0.01em] text-ink">
+              <div className="mt-1 text-[22px] font-medium leading-tight tracking-[-0.01em] text-ink">
                 {recommendedFocus}
               </div>
 
               {/* Never recommend silently. Without the reason this is just a
-                  sorted list wearing a border. */}
-              <div className="mt-1.5 text-[12.5px] text-ink-2">
+                  sorted list wearing a heavier weight. */}
+              <div className="mt-1.5 text-[12px] text-ink-2">
                 {recommendationReason(recommended, rotation, coldStart)}
               </div>
 
-              <div className="mt-3 border-t border-line-2 pt-3 text-[12.5px] text-ink-2">
+              <div className="mt-3.5 border-t border-line pt-3.5">
                 {coldStart ? (
                   // No history to count against, so lead with the lift and the
                   // number they'll be asked to put on the bar.
                   plan.firstExercise ? (
-                    <>
-                      Starts with{" "}
-                      <span className="font-medium text-ink">
-                        {plan.firstExercise.name}
-                      </span>
+                    <div className="flex gap-7">
                       {plan.firstExercise.seedWeight != null && (
-                        <>
-                          {" · "}
-                          <span className="font-medium text-ink">
-                            {formatWeight(plan.firstExercise.seedWeight)} lb
-                          </span>{" "}
-                          to start
-                        </>
+                        <Stat
+                          value={`${formatWeight(plan.firstExercise.seedWeight)} lb`}
+                          label="to start"
+                        />
                       )}
-                    </>
+                      <Stat value={plan.firstExercise.name} label="first lift" />
+                    </div>
                   ) : (
-                    "Ready when you are."
+                    <div className="text-[12px] text-ink-3">
+                      Ready when you are.
+                    </div>
                   )
                 ) : (
-                  <>
-                    <span className="font-medium text-ink">
-                      {plan.exerciseCount}
-                    </span>{" "}
-                    exercises{" · "}
-                    <span className="font-medium text-ink">
-                      {plan.totalTargetSets}
-                    </span>{" "}
-                    sets
+                  <div className="flex gap-7">
+                    <Stat value={plan.exerciseCount} label="exercises" />
+                    <Stat value={plan.totalTargetSets} label="sets" />
                     {plan.firstExercise && (
-                      <>
-                        {" · starts with "}
-                        <span className="font-medium text-ink">
-                          {plan.firstExercise.name}
-                        </span>
-                      </>
+                      <Stat
+                        value={plan.firstExercise.name}
+                        label="starts with"
+                      />
                     )}
-                  </>
+                  </div>
                 )}
               </div>
 
-              <form action={startSession} className="mt-3.5">
+              {/* The one filled button on the screen. Everything else is a text
+                  link or a hairline row, so this needs no colour to be found. */}
+              <form action={startSession} className="mt-4">
                 <input type="hidden" name="templateId" value={recommended.id} />
                 <button
                   type="submit"
-                  className="w-full rounded-lg bg-ink px-4 py-3 text-[15px] font-semibold text-on-ink active:opacity-90"
+                  className="w-full rounded-lg bg-ink px-4 py-3 text-[15px] font-medium text-on-ink active:opacity-90"
                 >
                   Start workout
                 </button>
@@ -218,12 +215,12 @@ export default async function Home() {
 
         {lastWorkout && (
           <section className="mt-1 flex flex-col gap-2">
-            <div className="mx-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            <div className="mx-1.5 text-[11px] uppercase tracking-[0.06em] text-ink-3">
               Your last workout
             </div>
-            <div className="rounded-card border border-line bg-card px-4 py-4">
+            <div className="rounded-card bg-card px-4 py-4">
               <div className="flex items-baseline justify-between gap-3">
-                <div className="min-w-0 text-[15px] font-semibold text-ink">
+                <div className="min-w-0 text-[15px] font-medium text-ink">
                   {splitName(lastWorkout.dayName)[1]}
                 </div>
                 <div className="shrink-0 text-[12px] text-ink-3">
@@ -233,35 +230,34 @@ export default async function Home() {
 
               {/* Backward-looking counterpart to the next-up stats. No duration:
                   see getLastWorkout. */}
-              <div className="mt-2.5 border-t border-line-2 pt-2.5 text-[12.5px] text-ink-2">
-                <span className="font-medium text-ink">
-                  {lastWorkout.setsDone}
-                </span>{" "}
-                sets{" · "}
-                {lastWorkout.averageRir != null ? (
-                  <>
-                    <span className="font-medium text-ink">
-                      {lastWorkout.averageRir.toFixed(1)}
-                    </span>{" "}
-                    avg RIR
-                  </>
-                ) : (
-                  <span className="text-ink-3">no RIR logged</span>
-                )}
-                {" · "}
-                <span className="font-medium text-ink">
-                  {lastWorkout.loadsIncreased}
-                </span>{" "}
-                {lastWorkout.loadsIncreased === 1 ? "load up" : "loads up"}
+              <div className="mt-3.5 flex gap-7 border-t border-line pt-3.5">
+                <Stat value={lastWorkout.setsDone} label="sets" />
+                <Stat
+                  value={
+                    lastWorkout.averageRir != null
+                      ? lastWorkout.averageRir.toFixed(1)
+                      : "—"
+                  }
+                  label="avg RIR"
+                />
+                <Stat
+                  value={lastWorkout.loadsIncreased}
+                  label={lastWorkout.loadsIncreased === 1 ? "load up" : "loads up"}
+                />
               </div>
 
+              {/* Load direction is one of the two things colour is spent on, so
+                  it goes on the numerals themselves — not a tinted panel behind
+                  them. The exercise name stays neutral: it isn't the signal. */}
               {lastWorkout.biggestGain && (
-                <div className="mt-2.5 rounded-lg bg-good-bg px-3 py-2 text-[12.5px] text-good">
-                  <span className="font-medium">
+                <div className="mt-3 text-[12px] text-ink-2">
+                  <span className="text-ink">
                     {lastWorkout.biggestGain.exerciseName}
                   </span>{" "}
-                  {formatWeight(lastWorkout.biggestGain.from)} →{" "}
-                  {formatWeight(lastWorkout.biggestGain.to)} lb
+                  <span className="tabular-nums text-up">
+                    {formatWeight(lastWorkout.biggestGain.from)} →{" "}
+                    {formatWeight(lastWorkout.biggestGain.to)} lb
+                  </span>
                 </div>
               )}
 
@@ -270,7 +266,7 @@ export default async function Home() {
                   recommended. */}
               <Link
                 href={`/session/${lastWorkout.sessionId}`}
-                className="mt-3.5 block w-full rounded-lg border border-line bg-field px-4 py-2.5 text-center text-[13px] font-medium text-ink-2"
+                className="mt-4 block w-full rounded-lg border border-line px-4 py-2.5 text-center text-[13px] text-ink-2"
               >
                 View session
               </Link>
@@ -280,10 +276,10 @@ export default async function Home() {
 
         {coldStart && (
           <section className="mt-1 flex flex-col gap-2">
-            <div className="mx-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            <div className="mx-1.5 text-[11px] uppercase tracking-[0.06em] text-ink-3">
               Progress
             </div>
-            <div className="rounded-card border border-line bg-card px-4 py-4 text-[12.5px] leading-relaxed text-ink-2">
+            <div className="rounded-card bg-card px-4 py-4 text-[12px] leading-relaxed text-ink-2">
               No sessions yet. Trends appear after your first few workouts.
             </div>
           </section>
@@ -296,6 +292,28 @@ export default async function Home() {
             bare count with no exercise names is not something anyone can act
             on. Left out rather than shipped misleading. */}
       </main>
+    </div>
+  );
+}
+
+/**
+ * A number and what it counts. Numbers are the interface here, so the value
+ * leads at 18px in primary text and the label sits under it, small and muted —
+ * hierarchy from size and weight rather than from colour.
+ */
+function Stat({
+  value,
+  label,
+}: {
+  value: string | number;
+  label: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="truncate text-[18px] font-medium leading-tight tabular-nums text-ink">
+        {value}
+      </div>
+      <div className="mt-0.5 truncate text-[12px] text-ink-3">{label}</div>
     </div>
   );
 }

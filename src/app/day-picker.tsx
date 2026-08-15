@@ -33,11 +33,9 @@ export function DayPicker({ days }: { days: PickerDay[] }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between rounded-card border border-line bg-card px-4 py-3 text-left active:bg-field"
+        className="flex w-full items-center justify-between border-y border-line px-1 py-3.5 text-left"
       >
-        <span className="text-[13px] font-medium text-ink-2">
-          Select another day
-        </span>
+        <span className="text-[13px] text-ink-2">Select another day</span>
         <svg
           viewBox="0 0 16 16"
           aria-hidden="true"
@@ -56,21 +54,24 @@ export function DayPicker({ days }: { days: PickerDay[] }) {
         </svg>
       </button>
 
+      {/* Rules, not cards. A list of alternatives is subordinate to the one
+          recommendation above it, so it gets the lightest structure that still
+          separates rows. */}
       {open && (
-        <div className="mt-1.5 flex flex-col gap-1.5">
+        <div className="flex flex-col">
           {days.map((d) => (
             <form key={d.id} action={startSession}>
               <input type="hidden" name="templateId" value={d.id} />
               <button
                 type="submit"
-                className="flex w-full items-center justify-between gap-3 rounded-card border border-line bg-card px-4 py-3 text-left active:bg-field"
+                className="flex w-full items-center justify-between gap-3 border-b border-line px-1 py-3.5 text-left"
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-[14px] font-medium text-ink">
+                  <span className="block truncate text-[14px] text-ink">
                     {d.focus}
                   </span>
                   {d.day && (
-                    <span className="block text-[11px] uppercase tracking-[0.08em] text-ink-3">
+                    <span className="mt-0.5 block text-[11px] uppercase tracking-[0.06em] text-ink-3">
                       {d.day}
                     </span>
                   )}
