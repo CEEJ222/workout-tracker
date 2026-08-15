@@ -228,6 +228,7 @@ export type Database = {
           id: string
           pair_label: string | null
           per_side: boolean
+          retired_at: string | null
           seed_is_estimate: boolean
           seed_weight: number | null
           sort_order: number
@@ -243,6 +244,7 @@ export type Database = {
           id?: string
           pair_label?: string | null
           per_side?: boolean
+          retired_at?: string | null
           seed_is_estimate?: boolean
           seed_weight?: number | null
           sort_order?: number
@@ -258,6 +260,7 @@ export type Database = {
           id?: string
           pair_label?: string | null
           per_side?: boolean
+          retired_at?: string | null
           seed_is_estimate?: boolean
           seed_weight?: number | null
           sort_order?: number
