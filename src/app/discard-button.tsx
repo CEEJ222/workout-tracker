@@ -37,7 +37,7 @@ export function DiscardButton({
         <button
           type="submit"
           aria-label={`Confirm discard ${label}`}
-          className="rounded-lg bg-amber px-2 py-1 text-[12px] font-semibold text-on-amber"
+          className="rounded-lg border border-pain-sharp px-2 py-1 text-[12px] font-medium text-pain-sharp"
         >
           Delete
         </button>

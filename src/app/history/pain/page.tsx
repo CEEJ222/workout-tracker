@@ -54,12 +54,24 @@ export default async function PainPage() {
   );
 }
 
+/**
+ * Pain severity is one of the two things this palette spends colour on, and the
+ * only one where the distinction is clinical.
+ *
+ * mild and sharp previously shared a single hue and differed only by fill, so
+ * telling them apart meant comparing two badges side by side. They now differ
+ * on hue AND on fill — outlined amber vs solid red — which means either one is
+ * readable alone, and the pair still separates for a colour-blind reader
+ * because the fill treatment carries the same information independently.
+ */
 function SeverityBadge({ severity }: { severity: "mild" | "sharp" }) {
   const sharp = severity === "sharp";
   return (
     <span
-      className={`rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.04em] ${
-        sharp ? "bg-amber text-on-amber" : "bg-amber-bg text-amber"
+      className={`rounded-md px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] ${
+        sharp
+          ? "bg-pain-sharp text-on-pain"
+          : "border border-pain-mild text-pain-mild"
       }`}
     >
       {severity}

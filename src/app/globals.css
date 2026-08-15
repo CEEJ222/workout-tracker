@@ -1,41 +1,45 @@
 @import "tailwindcss";
 
 /*
- * Design tokens ported from the daily-page wireframe so Tailwind utilities
- * (bg-card, text-ink, border-line, rounded-card, …) match the intended look.
+ * Design tokens. Every colour in the app resolves here — no per-component hex.
  *
- * The values here are the LIGHT palette and the source of the utility names.
- * Dark values are re-declared further down; nothing but the numbers changes, so
- * every component that already speaks in tokens follows automatically — the
- * weight chart, for one, needs no dark-mode code at all.
+ * The palette is near-monochrome by rule: typography and spacing carry
+ * hierarchy, and colour is spent only where it encodes something type cannot.
+ * In this app that is exactly two things:
+ *
+ *   1. pain severity  — mild vs sharp (health information)
+ *   2. load direction — a weight going up
+ *
+ * Anything that is merely "important" gets weight, size or position instead.
+ * That is why there is no accent colour: an accent is the thing that makes the
+ * two meaningful hues stop reading as meaningful.
+ *
+ * Values below are LIGHT and are also the source of the utility names. Dark is
+ * re-declared further down; only the numbers change, so components that speak
+ * in tokens follow automatically — the weight chart has no theme code at all.
  */
 @theme {
-  --color-ink: #1c1c1e;
-  --color-ink-2: #6b6b70;
-  --color-ink-3: #9a9aa0;
-  --color-line: #d9d9de;
-  --color-line-2: #e8e8ec;
-  --color-bg: #f3f3f5;
-  --color-card: #ffffff;
-  --color-field: #fbfbfc;
-  --color-amber: #b8791f;
-  --color-amber-bg: #f6ecd9;
-  /* Progress, in the same muted register as amber — a load going up is worth
-     marking, not celebrating. Paired fg/bg so tinted lines stay legible. */
-  --color-good: #2f7150;
-  --color-good-bg: #e6f0ea;
+  --color-ink: #0d0d0d;
+  --color-ink-2: #5a5a55;
+  --color-ink-3: #6e6e68;
+  --color-line: #e4e4e1;
+  --color-line-2: #eeeeec;
+  --color-bg: #ffffff;
+  --color-card: #f7f7f5;
+  --color-field: #f2f2f0;
+
+  /* The two meaningful hues, and only these. */
+  --color-up: #15803d;
+  --color-pain-mild: #a16207;
+  --color-pain-sharp: #dc2626;
 
   /*
-   * Foregrounds for the two solid fills.
-   *
-   * `--color-ink` does double duty: primary text AND the fill of solid buttons.
-   * That is fine until dark mode inverts it — a hardcoded `text-white` on a
-   * `bg-ink` button becomes white-on-white the moment ink turns pale. These
-   * tokens are the contrasting side of each fill and flip with it, so a solid
-   * button stays readable in both themes without any per-component branching.
+   * Foregrounds for solid fills. `--color-ink` is both primary text and the
+   * fill of the single filled button, so a hardcoded white would invert to
+   * white-on-white in dark mode. These flip with their fill instead.
    */
   --color-on-ink: #ffffff;
-  --color-on-amber: #ffffff;
+  --color-on-pain: #ffffff;
 
   --radius-card: 12px;
 
@@ -43,60 +47,59 @@
 }
 
 /*
- * Dark palette.
+ * Dark palette — the reference design; light above is derived from the same
+ * structure.
  *
- * Declared twice on purpose, and the duplication is the point:
+ * Declared twice on purpose:
+ *   - [data-theme="dark"]                         — explicit choice, beats the device
+ *   - prefers-color-scheme within [data-theme="system"] — default, follows the device
  *
- *   - `[data-theme="dark"]`  — an explicit choice, which must beat the device.
- *   - `prefers-color-scheme` under `[data-theme="system"]` — the default, which
- *     must follow the device.
+ * Scoping the media query to `system` is what makes `light` a real override
+ * rather than something the OS can overrule. `data-theme` is server-rendered
+ * onto <html>, so the right palette is in the first byte of HTML — no flash.
  *
- * Scoping the media query to `system` is what makes "light" a real override:
- * without it, a user who picks light on a dark phone gets overruled by their OS.
- *
- * `data-theme` is server-rendered onto <html>, so the correct palette is present
- * in the first byte of HTML. There is no client-side flip and therefore no white
- * flash — which is the whole reason this is CSS and not a useEffect.
+ * On muted text: the brief specified #6B6B67, which measures 3.6:1 on #0D0D0D
+ * and 3.1:1 on #171717 — under WCAG AA for body text, and the brief also
+ * requires AA. #80807A is the nearest value that clears 4.5:1 on BOTH surfaces
+ * (4.89:1 and 4.51:1) while keeping the same near-neutral warm grey.
  */
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
-    --color-ink: #f1f1f4;
-    --color-ink-2: #a2a2aa;
-    --color-ink-3: #78787f;
-    --color-line: #35353c;
-    --color-line-2: #2a2a30;
-    --color-bg: #0f0f11;
-    --color-card: #1a1a1e;
-    --color-field: #232328;
-    --color-amber: #d99f45;
-    --color-amber-bg: #3a2e1a;
-    --color-good: #63b98d;
-    --color-good-bg: #1b3227;
-    --color-on-ink: #131316;
-    --color-on-amber: #1e1608;
+    --color-ink: #fafafa;
+    --color-ink-2: #a3a39d;
+    --color-ink-3: #80807a;
+    --color-line: #222222;
+    --color-line-2: #1c1c1c;
+    --color-bg: #0d0d0d;
+    --color-card: #171717;
+    --color-field: #1c1c1c;
+    --color-up: #4ade80;
+    --color-pain-mild: #e0a82e;
+    --color-pain-sharp: #f87171;
+    --color-on-ink: #0d0d0d;
+    --color-on-pain: #0d0d0d;
   }
 }
 
 :root[data-theme="dark"] {
-  --color-ink: #f1f1f4;
-  --color-ink-2: #a2a2aa;
-  --color-ink-3: #78787f;
-  --color-line: #35353c;
-  --color-line-2: #2a2a30;
-  --color-bg: #0f0f11;
-  --color-card: #1a1a1e;
-  --color-field: #232328;
-  --color-amber: #d99f45;
-  --color-amber-bg: #3a2e1a;
-  --color-good: #63b98d;
-  --color-good-bg: #1b3227;
-  --color-on-ink: #131316;
-  --color-on-amber: #1e1608;
+  --color-ink: #fafafa;
+  --color-ink-2: #a3a39d;
+  --color-ink-3: #80807a;
+  --color-line: #222222;
+  --color-line-2: #1c1c1c;
+  --color-bg: #0d0d0d;
+  --color-card: #171717;
+  --color-field: #1c1c1c;
+  --color-up: #4ade80;
+  --color-pain-mild: #e0a82e;
+  --color-pain-sharp: #f87171;
+  --color-on-ink: #0d0d0d;
+  --color-on-pain: #0d0d0d;
 }
 
 /*
- * Tell the browser which scheme is in play so form controls, scrollbars and
- * the like are themed natively rather than staying stubbornly light.
+ * Tell the browser which scheme is in play so form controls and scrollbars are
+ * themed natively rather than staying stubbornly light.
  */
 :root[data-theme="system"] {
   color-scheme: light dark;
