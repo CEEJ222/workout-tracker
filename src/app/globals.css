@@ -15,6 +15,10 @@
   --color-field: #fbfbfc;
   --color-amber: #b8791f;
   --color-amber-bg: #f6ecd9;
+  /* Progress, in the same muted register as amber — a load going up is worth
+     marking, not celebrating. Paired fg/bg so tinted lines stay legible. */
+  --color-good: #2f7150;
+  --color-good-bg: #e6f0ea;
 
   --radius-card: 12px;
 
