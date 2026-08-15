@@ -138,12 +138,43 @@ Auto-load has already walked weights to values that don't exist on any rack (52.
 ---
 ## Exercise names are exact and case-sensitive
 
-Lowercase-style names belong to CJ; Title Case names belong to Betsy. Some pairs differ
-*only* by case and punctuation — `Single-arm DB row` (CJ) vs `Single-Arm Dumbbell Row`
-(Betsy).
+**Case is a naming habit, not an ownership boundary.** CJ's templates tend to use
+lowercase-style names and Betsy's Title Case, but that is a tendency in how each set of
+templates was authored. It does not partition the table. **Do not infer ownership from
+case.**
 
-Always `where e.name = 'Exact Name'`. Never `ilike` with partial matching — it silently
-grabs the other user's row and writes cross-contaminated data.
+`exercises` is a **shared** table with no owner column. Twelve exercise names appear in
+both users' templates, and eleven of those are the *same* `exercise_id` — one row reached
+by two users, not a duplicate pair:
+
+45-Degree Back Extension, Barbell Hip Thrust, Seated Leg Curl, Standing Calf Raise,
+Cable Triceps Pushdown (rope), Reverse Pec Deck (rear delt), Cable Curl (straight or EZ
+bar), Banded X-Walks / Lateral Band Walks, Dynamic leg swings, Easy cardio raise, Wall
+slide (protract).
+
+Only `Dead bug` (CJ) / `Dead Bug` (Betsy) are genuinely two separate rows.
+
+**Exact matching is still required.** Always `where e.name = 'Exact Name'`. Never `ilike`
+with partial matching. Distinct exercises can be separated by nothing more than case —
+`Dead bug` and `Dead Bug` above — or by case plus wording, like `Single-arm DB row` (CJ)
+and `Single-Arm Dumbbell Row` (Betsy), which are also two different rows. A loose match
+silently grabs the wrong row and writes cross-contaminated data. That hazard is real and
+unchanged.
+
+**Isolation is enforced by `mesocycles.user_id` via RLS**, not by anything on `exercises`.
+A user reaches an exercise only through their own mesocycle → template → block →
+template-exercise chain.
+
+**Per-user state is safe.** `user_exercise_progress` is keyed `(user_id, exercise_id)`, so
+a shared exercise still tracks separate loads per user. CJ's Barbell Hip Thrust sits at
+125 and Betsy's at 185 on the same `exercise_id`.
+
+**Per-exercise CONFIG is shared wherever the id is shared.** `rest_seconds`,
+`increment_lb`, `cues`, `auto_load`, and the taxonomy columns (`primary_muscle`,
+`movement_pattern`, `is_unilateral`, `log_type`) all live on `exercises`. Changing any of
+them affects **both** users. This is the reason `rest_seconds` is moving to
+`template_exercises`, which is user-scoped via its template.
+
 ---
 ## Read before write
 
