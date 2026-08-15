@@ -94,7 +94,7 @@ export async function getSessionDetail(
           `id, type, label, sort_order,
            template_exercises (
              id, pair_label, target_sets, target_reps_low, target_reps_high,
-             target_rir_low, target_rir_high,
+             target_rir_low, target_rir_high, rest_seconds,
              per_side, seed_weight, seed_is_estimate, sort_order,
              exercises ( id, name, description, cues, log_type, auto_load, rest_seconds )
            )`,
@@ -105,6 +105,7 @@ export async function getSessionDetail(
         .from("session_exercises")
         .select(
           `id, template_exercise_id, note, pain_severity, done,
+           exercises ( id, name, description, cues, log_type, auto_load, rest_seconds ),
            session_sets ( id, set_number, target_reps_low, target_reps_high, actual_weight, actual_reps, actual_rir, done )`,
         )
         .eq("session_id", sessionId),
@@ -132,8 +133,13 @@ export async function getSessionDetail(
       const exercises: ExerciseCard[] = [...block.template_exercises]
         .sort((a, b) => a.sort_order - b.sort_order)
         .map((te) => {
-          const exercise = te.exercises;
           const se = seByTemplateExercise.get(te.id);
+          // Prefer the identity snapshotted onto session_exercises at creation
+          // over the live template join: if this prescription is later edited or
+          // repointed, the logged session keeps showing what was actually done.
+          // Falls back to the template row for prescriptions not yet started
+          // (no session_exercise) and for pre-snapshot rows.
+          const exercise = se?.exercises ?? te.exercises;
           const prog = progressByExercise.get(exercise.id);
 
           const hasProgress = prog != null && prog.current_weight != null;
@@ -174,7 +180,12 @@ export async function getSessionDetail(
             cues: exercise.cues,
             logType: exercise.log_type,
             autoLoad: exercise.auto_load,
-            restSeconds: exercise.rest_seconds,
+            // Rest is a property of the slot, not the exercise: the same
+            // movement is a 150s primary on one day and a 75s superset member on
+            // another. The per-slot override wins; the exercise value is the
+            // default. Note this is also what makes rest per-athlete — exercises
+            // rows are shared between users, template_exercises rows are not.
+            restSeconds: te.rest_seconds ?? exercise.rest_seconds,
             pairLabel: te.pair_label,
             perSide: te.per_side,
             targetSets: te.target_sets,

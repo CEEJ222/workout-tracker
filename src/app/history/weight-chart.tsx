@@ -30,6 +30,19 @@ export function WeightChart({ points }: { points: Point[] }) {
 
   const line = points.map((p, i) => `${x(i)},${y(p.weight)}`).join(" ");
 
+  // Guide lines at the series max and min, keyed by ROLE rather than by value —
+  // the value is exactly what collides. On a flat series (a single session, or
+  // every session at the same weight) max and min are equal, which previously
+  // gave both <g> elements the same React key. They also render at an identical
+  // y, so one guide is what's actually wanted, not two stacked on each other.
+  const guides =
+    maxW === minW
+      ? [{ role: "only", weight: maxW }]
+      : [
+          { role: "max", weight: maxW },
+          { role: "min", weight: minW },
+        ];
+
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -37,25 +50,25 @@ export function WeightChart({ points }: { points: Point[] }) {
       role="img"
       aria-label="Weight over time"
     >
-      {/* y-axis guide labels (max / min) */}
-      {[maxW, minW].map((w) => (
-        <g key={w}>
+      {/* y-axis guide labels (max / min, or a single line on a flat series) */}
+      {guides.map((g) => (
+        <g key={g.role}>
           <line
             x1={padL}
             x2={width - padR}
-            y1={y(w)}
-            y2={y(w)}
+            y1={y(g.weight)}
+            y2={y(g.weight)}
             stroke="var(--color-line-2)"
             strokeWidth={1}
           />
           <text
             x={padL - 6}
-            y={y(w) + 3}
+            y={y(g.weight) + 3}
             textAnchor="end"
             fontSize={10}
             fill="var(--color-ink-3)"
           >
-            {w}
+            {g.weight}
           </text>
         </g>
       ))}

@@ -18,7 +18,8 @@ export default async function Home() {
     getActiveMesocycleId(),
     getInProgressSessions(),
   ]);
-  // Only the active block's three days.
+  // The active block's days — however many it has. Block A ran 3, Block C runs
+  // 4; nothing here assumes a count.
   const templates = await getTemplates(activeMesocycleId);
 
   return (
