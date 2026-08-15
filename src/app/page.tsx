@@ -344,28 +344,24 @@ function formatDate(iso: string): string {
 }
 
 /**
- * Whole calendar days between then and now, counted in UTC.
+ * Whole calendar days between then and now.
  *
  * Calendar days, not elapsed hours: a session finished last night reads "1 day
- * ago", not "0" because 23 hours haven't passed. Counted in UTC because this
- * renders on the server, which matches how the rest of the page already
- * formats dates.
+ * ago" rather than "0" merely because 23 hours haven't passed.
+ *
+ * Counted in the rendering timezone, not UTC, so this agrees with the
+ * `toLocaleDateString` output elsewhere on the page. Counting in UTC put an
+ * evening session on the following calendar day, which showed a workout
+ * finished at 7:30pm as "today" directly above a banner dating it "Fri, Aug
+ * 14" — the two lines contradicting each other about the same evening.
  */
 function daysSince(iso: string): number {
   const day = 24 * 60 * 60 * 1000;
   const then = new Date(iso);
   const now = new Date();
-  const thenUtc = Date.UTC(
-    then.getUTCFullYear(),
-    then.getUTCMonth(),
-    then.getUTCDate(),
-  );
-  const nowUtc = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-  );
-  return Math.max(0, Math.round((nowUtc - thenUtc) / day));
+  const startOfDay = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  return Math.max(0, Math.round((startOfDay(now) - startOfDay(then)) / day));
 }
 
 function relativeDay(iso: string): string {
