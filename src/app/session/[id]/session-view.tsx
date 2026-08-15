@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { completeWorkout } from "@/app/actions/session";
-import { formatRest } from "@/lib/rest";
+import { formatRest, type PairPosition, type RestGuidance } from "@/lib/rest";
 import type {
   SessionDetail,
   SessionBlock,
@@ -72,15 +72,20 @@ export function SessionView({ detail }: { detail: SessionDetail }) {
     }
   }
 
-  function startRestTimer(card: ExerciseCard) {
-    if (card.restSeconds == null) return; // warm-up / no guidance → no timer
+  // Takes the already-resolved countdown from formatRest rather than reading
+  // card.restSeconds itself. That is the whole point: the number counted down
+  // here is the same number the label was built from, so the two cannot drift.
+  // A null means this card deliberately starts no rest (a leading superset
+  // member — you go straight into the partner).
+  function startRestTimer(countdownSeconds: number | null, exerciseName: string) {
+    if (countdownSeconds == null) return;
     try {
       primeAudio();
       setRestTimer({
         key: Date.now(),
         startedAt: Date.now(),
-        durationSeconds: card.restSeconds,
-        exerciseName: card.name,
+        durationSeconds: countdownSeconds,
+        exerciseName,
       });
     } catch {
       /* never let a timer hiccup interfere with logging */
@@ -138,23 +143,36 @@ export function SessionView({ detail }: { detail: SessionDetail }) {
   }
 
   // ── handlers ────────────────────────────────────────────────────────────
-  function toggleExerciseDone(card: ExerciseCard) {
+  // `countdown` is the resolved value from this card's RestGuidance. Circuit
+  // rows are checked off at exercise level rather than per set, so this is where
+  // their rest starts; working rows pass null and start theirs in toggleSetDone.
+  function toggleExerciseDone(
+    card: ExerciseCard,
+    countdown: number | null = null,
+  ) {
     const next = !exState[card.sessionExerciseId].done;
     setExState((p) => ({
       ...p,
       [card.sessionExerciseId]: { ...p[card.sessionExerciseId], done: next },
     }));
     persistExercise(card.sessionExerciseId, { done: next });
+
+    if (next) startRestTimer(countdown, card.name);
   }
 
-  function toggleSetDone(card: ExerciseCard, setId: string) {
+  function toggleSetDone(
+    card: ExerciseCard,
+    setId: string,
+    countdown: number | null,
+  ) {
     const next = !setDone[setId];
     const nextMap = { ...setDone, [setId]: next };
     setSetDone(nextMap);
     persistSet(setId, { done: next });
 
     // Checking a set off starts the rest countdown (un-checking does not).
-    if (next) startRestTimer(card);
+    // `countdown` is null on a leading superset member — no rest between halves.
+    if (next) startRestTimer(countdown, card.name);
 
     // An exercise card is "done" once all its sets are done.
     const allDone = card.sets.every((s) => nextMap[s.id]);
@@ -281,11 +299,53 @@ type Handlers = {
     setId: string,
     patch: Database["public"]["Tables"]["session_sets"]["Update"],
   ) => void;
-  toggleExerciseDone: (card: ExerciseCard) => void;
-  toggleSetDone: (card: ExerciseCard, setId: string) => void;
+  toggleExerciseDone: (card: ExerciseCard, countdown?: number | null) => void;
+  toggleSetDone: (
+    card: ExerciseCard,
+    setId: string,
+    countdown: number | null,
+  ) => void;
   setPain: (card: ExerciseCard, sev: PainSeverity) => void;
   setNote: (card: ExerciseCard, value: string) => void;
 };
+
+/**
+ * Where a card sits in its superset pair, for rest purposes.
+ *
+ * Pairs are identified by `template_exercises.pair_label` inside a
+ * `template_blocks.type = 'superset'` block: members sharing a prefix ("A" from
+ * "A1"/"A2") are one pair. The LAST member of a pair carries the rest; every
+ * earlier member carries none, because you alternate straight through.
+ *
+ * Grouping by prefix rather than assuming one pair per block means a block
+ * holding A1/A2 alongside B1/B2 still resolves correctly, and a triplet
+ * A1/A2/A3 rests only after A3. Today every superset block holds exactly one
+ * pair, so this reduces to "the one ending in 2 rests".
+ */
+function pairPositionFor(
+  block: SessionBlock,
+  card: ExerciseCard,
+): PairPosition {
+  if (block.type !== "superset" || !card.pairLabel) return { kind: "none" };
+
+  const prefixOf = (label: string) => label.replace(/\d+$/, "");
+  const prefix = prefixOf(card.pairLabel);
+  const members = block.exercises.filter(
+    (e) => e.pairLabel != null && prefixOf(e.pairLabel) === prefix,
+  );
+  // A lone member is not a pair — it rests normally.
+  if (members.length < 2) return { kind: "none" };
+
+  // templateExerciseId is always populated; sessionExerciseId is "" for a
+  // prescription with no session_exercise row yet, so it cannot identify a card.
+  const idx = members.findIndex(
+    (e) => e.templateExerciseId === card.templateExerciseId,
+  );
+  if (idx === -1 || idx === members.length - 1) {
+    return { kind: "final", labels: members.map((e) => e.pairLabel as string) };
+  }
+  return { kind: "leading", nextLabel: members[idx + 1].pairLabel as string };
+}
 
 function BlockGroup({
   block,
@@ -300,15 +360,6 @@ function BlockGroup({
   setDone: Record<string, boolean>;
   handlers: Handlers;
 }) {
-  // The pair labels (e.g. ["A1", "A2"]) for a superset block — used to render
-  // each member's rest as "Alternate A1/A2 · …" instead of a flat rest line.
-  const supersetLabels =
-    block.type === "superset"
-      ? block.exercises
-          .map((e) => e.pairLabel)
-          .filter((l): l is string => l != null)
-      : undefined;
-
   return (
     <section>
       <div className="mx-1.5 mb-2 mt-[18px] flex items-center gap-2 text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -322,6 +373,7 @@ function BlockGroup({
             <CircuitRow
               key={card.sessionExerciseId}
               card={card}
+              rest={formatRest(card.restSeconds)}
               done={exState[card.sessionExerciseId]?.done ?? false}
               handlers={handlers}
             />
@@ -334,7 +386,7 @@ function BlockGroup({
               key={card.sessionExerciseId}
               card={card}
               superset={block.type === "superset"}
-              supersetLabels={supersetLabels}
+              rest={formatRest(card.restSeconds, pairPositionFor(block, card))}
               showRampUp={card.templateExerciseId === rampUpId}
               ex={exState[card.sessionExerciseId]}
               setDone={setDone}
@@ -349,10 +401,12 @@ function BlockGroup({
 
 function CircuitRow({
   card,
+  rest,
   done,
   handlers,
 }: {
   card: ExerciseCard;
+  rest: RestGuidance | null;
   done: boolean;
   handlers: Handlers;
 }) {
@@ -365,12 +419,19 @@ function CircuitRow({
         <DoneBox
           small
           checked={done}
-          onToggle={() => handlers.toggleExerciseDone(card)}
+          onToggle={() =>
+            handlers.toggleExerciseDone(card, rest?.countdownSeconds ?? null)
+          }
           label={`${card.name} done`}
         />
         <div className="min-w-0 flex-1">
           <div className="text-[13.5px] leading-tight">{card.name}</div>
-          <div className="text-[12px] text-ink-3">{formatTarget(card)}</div>
+          {/* Warm-up rows are checked off whole rather than per set, so the rest
+              line sits inline with the target instead of on its own row. */}
+          <div className="text-[12px] text-ink-3">
+            {formatTarget(card)}
+            {rest && ` · ${rest.text}`}
+          </div>
         </div>
 
         {card.logType === "done_check_weight" && firstSet && (
@@ -430,7 +491,7 @@ function CircuitRow({
 function ExerciseCardView({
   card,
   superset,
-  supersetLabels,
+  rest,
   showRampUp,
   ex,
   setDone,
@@ -438,7 +499,7 @@ function ExerciseCardView({
 }: {
   card: ExerciseCard;
   superset: boolean;
-  supersetLabels?: string[];
+  rest: RestGuidance | null;
   showRampUp: boolean;
   ex: ExUiState;
   setDone: Record<string, boolean>;
@@ -447,11 +508,17 @@ function ExerciseCardView({
   const [openCues, setOpenCues] = useState(false);
   const [openNote, setOpenNote] = useState(false);
   const weighted = card.logType !== "done_check";
-  // Show a per-set actual-RIR input only when this prescription carries a RIR
-  // target (working lifts). Warm-ups / core / carries have targetRirLow == null.
-  const showRir = card.targetRirLow != null;
+  // Offer a per-set actual-RIR input wherever a load is logged.
+  //
+  // This used to be gated on `card.targetRirLow != null`, which tied *capturing*
+  // effort to whether the prescription *prescribes* one. Only Primary and
+  // Superset rows carry a RIR target, so the input never rendered on any
+  // accessory — capping capture at ~37% of a session's sets no matter what CJ
+  // did. Where the box does render, capture is 77%; the gap was the gate, not
+  // the habit. Isometrics (done_check: side plank, dead bug) still get no RIR
+  // input — there's no load and no meaningful rep-reserve. Never required.
+  const showRir = weighted;
   const hasMarker = ex.pain != null || ex.note.length > 0;
-  const rest = formatRest(card.restSeconds, superset ? supersetLabels : null);
   // Static class literals (all four variants spelled out) so Tailwind's
   // compile-time scan keeps them — a template-built arbitrary value gets purged.
   const setGridClass = weighted
@@ -527,6 +594,18 @@ function ExerciseCardView({
         )}
       </div>
 
+      {/* The lead cue, pinned open directly above the weight inputs rather than
+          hidden behind "How to do it". cues[0] is where the weight-logging
+          convention lives ("Log TOTAL weight: both dumbbells summed…"), and a
+          convention nobody can see is a convention that drifts — it already did,
+          silently, for a month (normalized in 20260815033419). Shown only on
+          loaded rows, where the ambiguity actually exists. */}
+      {weighted && card.cues[0] && (
+        <div className="border-t border-line-2 bg-field/60 px-[15px] py-2 text-[11.5px] leading-snug text-ink-2">
+          {card.cues[0]}
+        </div>
+      )}
+
       <div className="px-[15px] py-1">
         {card.sets.map((s) => (
           <div
@@ -577,7 +656,11 @@ function ExerciseCardView({
                 type="number"
                 inputMode="numeric"
                 defaultValue={s.actualRir ?? ""}
-                placeholder={String(card.targetRirLow ?? "")}
+                // The prescribed RIR when there is one, else a bare label so the
+                // field is self-describing on rows that carry no target.
+                placeholder={
+                  card.targetRirLow != null ? String(card.targetRirLow) : "RIR"
+                }
                 onBlur={(e) =>
                   handlers.persistSet(s.id, {
                     actual_rir: parseRir(e.target.value),
@@ -589,7 +672,13 @@ function ExerciseCardView({
             )}
             <DoneBox
               checked={setDone[s.id] ?? false}
-              onToggle={() => handlers.toggleSetDone(card, s.id)}
+              onToggle={() =>
+                handlers.toggleSetDone(
+                  card,
+                  s.id,
+                  rest?.countdownSeconds ?? null,
+                )
+              }
               label={`set ${s.setNumber} done`}
             />
           </div>
@@ -745,7 +834,9 @@ function formatTarget(card: ExerciseCard): string {
 /**
  * RIR (reps-in-reserve) guidance, e.g. "1–2 RIR" or "2 RIR". Returns null when
  * the prescription has no RIR target (warm-ups, core, carries, cuff/scapular
- * work) so nothing extra is rendered. Display-only — RIR is never logged.
+ * work) so nothing extra is rendered in the target line. This is the *target*
+ * only; actual RIR is logged per set (session_sets.actual_rir) on every loaded
+ * row, whether or not a target exists.
  */
 function formatRir(card: ExerciseCard): string | null {
   if (card.targetRirLow == null) return null;

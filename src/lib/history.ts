@@ -49,7 +49,7 @@ export async function getWeightHistory(): Promise<WeightSeries[]> {
     .select(
       `completed_at,
        session_exercises (
-         template_exercises ( exercises ( id, name ) ),
+         exercises ( id, name ),
          session_sets ( actual_weight, done )
        )`,
     )
@@ -63,7 +63,10 @@ export async function getWeightHistory(): Promise<WeightSeries[]> {
     const date = session.completed_at;
     if (!date) continue;
     for (const se of session.session_exercises) {
-      const exercise = se.template_exercises?.exercises;
+      // The identity snapshotted at session creation — NOT a join through
+      // template_exercises, which resolves against live template config and
+      // would let a template edit retroactively rewrite this chart.
+      const exercise = se.exercises;
       if (!exercise) continue;
       const weights = se.session_sets
         .filter((s) => s.done && s.actual_weight != null)
@@ -110,7 +113,7 @@ export async function getPainTimeline(): Promise<PainByExercise[]> {
       `started_at, completed_at, workout_templates(name),
        session_exercises (
          note, pain_severity,
-         template_exercises ( exercises ( name ) )
+         exercises ( name )
        )`,
     )
     .order("started_at", { ascending: false });
@@ -123,7 +126,8 @@ export async function getPainTimeline(): Promise<PainByExercise[]> {
     const templateName = session.workout_templates?.name ?? "Workout";
     for (const se of session.session_exercises) {
       if (se.pain_severity == null) continue;
-      const name = se.template_exercises?.exercises?.name ?? "Exercise";
+      // Snapshotted identity — see getWeightHistory.
+      const name = se.exercises?.name ?? "Exercise";
       const group = byExercise.get(name) ?? { exerciseName: name, entries: [] };
       group.entries.push({
         date,

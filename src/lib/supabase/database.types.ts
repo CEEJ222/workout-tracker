@@ -14,6 +14,32 @@ export type Database = {
   }
   public: {
     Tables: {
+      exercise_muscles: {
+        Row: {
+          contribution: number
+          exercise_id: string
+          muscle: Database["public"]["Enums"]["muscle_group"]
+        }
+        Insert: {
+          contribution: number
+          exercise_id: string
+          muscle: Database["public"]["Enums"]["muscle_group"]
+        }
+        Update: {
+          contribution?: number
+          exercise_id?: string
+          muscle?: Database["public"]["Enums"]["muscle_group"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_muscles_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercises: {
         Row: {
           auto_load: boolean
@@ -21,8 +47,13 @@ export type Database = {
           description: string | null
           id: string
           increment_lb: number | null
+          is_unilateral: boolean
           log_type: Database["public"]["Enums"]["log_type"]
+          movement_pattern:
+            | Database["public"]["Enums"]["movement_pattern"]
+            | null
           name: string
+          primary_muscle: Database["public"]["Enums"]["muscle_group"] | null
           rest_seconds: number | null
         }
         Insert: {
@@ -31,8 +62,13 @@ export type Database = {
           description?: string | null
           id?: string
           increment_lb?: number | null
+          is_unilateral?: boolean
           log_type: Database["public"]["Enums"]["log_type"]
+          movement_pattern?:
+            | Database["public"]["Enums"]["movement_pattern"]
+            | null
           name: string
+          primary_muscle?: Database["public"]["Enums"]["muscle_group"] | null
           rest_seconds?: number | null
         }
         Update: {
@@ -41,8 +77,13 @@ export type Database = {
           description?: string | null
           id?: string
           increment_lb?: number | null
+          is_unilateral?: boolean
           log_type?: Database["public"]["Enums"]["log_type"]
+          movement_pattern?:
+            | Database["public"]["Enums"]["movement_pattern"]
+            | null
           name?: string
+          primary_muscle?: Database["public"]["Enums"]["muscle_group"] | null
           rest_seconds?: number | null
         }
         Relationships: []
@@ -71,6 +112,7 @@ export type Database = {
       session_exercises: {
         Row: {
           done: boolean
+          exercise_id: string | null
           id: string
           note: string | null
           pain_severity: Database["public"]["Enums"]["pain_severity"] | null
@@ -79,6 +121,7 @@ export type Database = {
         }
         Insert: {
           done?: boolean
+          exercise_id?: string | null
           id?: string
           note?: string | null
           pain_severity?: Database["public"]["Enums"]["pain_severity"] | null
@@ -87,6 +130,7 @@ export type Database = {
         }
         Update: {
           done?: boolean
+          exercise_id?: string | null
           id?: string
           note?: string | null
           pain_severity?: Database["public"]["Enums"]["pain_severity"] | null
@@ -94,6 +138,13 @@ export type Database = {
           template_exercise_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "session_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "session_exercises_session_id_fkey"
             columns: ["session_id"]
@@ -228,6 +279,7 @@ export type Database = {
           id: string
           pair_label: string | null
           per_side: boolean
+          rest_seconds: number | null
           retired_at: string | null
           seed_is_estimate: boolean
           seed_weight: number | null
@@ -244,6 +296,7 @@ export type Database = {
           id?: string
           pair_label?: string | null
           per_side?: boolean
+          rest_seconds?: number | null
           retired_at?: string | null
           seed_is_estimate?: boolean
           seed_weight?: number | null
@@ -260,6 +313,7 @@ export type Database = {
           id?: string
           pair_label?: string | null
           per_side?: boolean
+          rest_seconds?: number | null
           retired_at?: string | null
           seed_is_estimate?: boolean
           seed_weight?: number | null
@@ -391,6 +445,37 @@ export type Database = {
     Enums: {
       block_type: "circuit" | "superset" | "single"
       log_type: "sets_weight" | "done_check" | "done_check_weight"
+      movement_pattern:
+        | "hinge"
+        | "squat"
+        | "lunge"
+        | "horizontal_push"
+        | "vertical_push"
+        | "horizontal_pull"
+        | "vertical_pull"
+        | "hip_abduction"
+        | "isolation"
+        | "carry"
+        | "core"
+        | "mobility"
+      muscle_group:
+        | "glute_max"
+        | "glute_med"
+        | "quads"
+        | "hamstrings"
+        | "calves"
+        | "adductors"
+        | "chest"
+        | "lats"
+        | "upper_back"
+        | "rear_delt"
+        | "side_delt"
+        | "front_delt"
+        | "biceps"
+        | "triceps"
+        | "core"
+        | "erectors"
+        | "rotator_cuff"
       pain_severity: "mild" | "sharp"
       session_status: "in_progress" | "completed"
     }
@@ -522,6 +607,39 @@ export const Constants = {
     Enums: {
       block_type: ["circuit", "superset", "single"],
       log_type: ["sets_weight", "done_check", "done_check_weight"],
+      movement_pattern: [
+        "hinge",
+        "squat",
+        "lunge",
+        "horizontal_push",
+        "vertical_push",
+        "horizontal_pull",
+        "vertical_pull",
+        "hip_abduction",
+        "isolation",
+        "carry",
+        "core",
+        "mobility",
+      ],
+      muscle_group: [
+        "glute_max",
+        "glute_med",
+        "quads",
+        "hamstrings",
+        "calves",
+        "adductors",
+        "chest",
+        "lats",
+        "upper_back",
+        "rear_delt",
+        "side_delt",
+        "front_delt",
+        "biceps",
+        "triceps",
+        "core",
+        "erectors",
+        "rotator_cuff",
+      ],
       pain_severity: ["mild", "sharp"],
       session_status: ["in_progress", "completed"],
     },
