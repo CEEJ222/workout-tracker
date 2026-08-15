@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { SessionSummary } from "@/lib/session-summary";
+import { GainList } from "@/app/gain-list";
 
 /**
  * A number and what it counts. Numbers are the interface here, so the value
@@ -78,18 +79,9 @@ export function SessionSummaryCard({
         <Stat value={summary.loadsIncreased} label="heavier" />
       </div>
 
-      {/* Load direction is one of the two things colour is spent on, so it goes
-          on the numerals themselves — not a tinted panel behind them. The
-          exercise name stays neutral: it isn't the signal. */}
-      {summary.biggestGain && (
-        <div className="mt-3 text-[12px] text-ink-2">
-          <span className="text-ink">{summary.biggestGain.exerciseName}</span>{" "}
-          <span className="tabular-nums text-up">
-            {formatWeight(summary.biggestGain.from)} →{" "}
-            {formatWeight(summary.biggestGain.to)} lb
-          </span>
-        </div>
-      )}
+      {/* Largest increase, with the rest one tap away rather than one page
+          away. The whole list is already rendered; expanding only reveals it. */}
+      <GainList gains={summary.gains} />
 
       {/* Pain is the other. A count is not a severity, so this stays neutral —
           the severity itself is coloured on the Pain tab, where it is named. */}
@@ -116,8 +108,4 @@ function splitName(name: string): [string, string] {
     return [parts[0], parts.slice(1).join(" · ")];
   }
   return ["", name];
-}
-
-function formatWeight(lb: number): string {
-  return Number.isInteger(lb) ? String(lb) : lb.toFixed(1);
 }

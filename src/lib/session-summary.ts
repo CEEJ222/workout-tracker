@@ -11,8 +11,13 @@ export type SessionSummary = {
   completedAt: string;
   setsDone: number;
   averageRir: number | null;
+  /**
+   * Every lift that beat its own previous session, largest increase first.
+   * `loadsIncreased` is just this length — kept as its own field so the stat
+   * row doesn't have to know the list exists.
+   */
+  gains: LoadGain[];
   loadsIncreased: number;
-  biggestGain: LoadGain | null;
   painFlags: number;
 };
 
@@ -87,8 +92,7 @@ export async function getSessionSummaries(): Promise<SessionSummary[]> {
     let setsDone = 0;
     let rirTotal = 0;
     let rirCount = 0;
-    let loadsIncreased = 0;
-    let biggestGain: LoadGain | null = null;
+    const gains: LoadGain[] = [];
 
     for (const se of working) {
       for (const set of se.session_sets) {
@@ -107,17 +111,11 @@ export async function getSessionSummaries(): Promise<SessionSummary[]> {
       // A first-ever appearance has nothing to improve on, so it is not a gain
       // — only a genuine increase over a previous session counts.
       if (top != null && prior != null && top > prior) {
-        loadsIncreased += 1;
-        if (
-          biggestGain == null ||
-          top - prior > biggestGain.to - biggestGain.from
-        ) {
-          biggestGain = {
-            exerciseName: se.exercises?.name ?? "Exercise",
-            from: prior,
-            to: top,
-          };
-        }
+        gains.push({
+          exerciseName: se.exercises?.name ?? "Exercise",
+          from: prior,
+          to: top,
+        });
       }
 
       if (top != null && exerciseId != null) previousTop.set(exerciseId, top);
@@ -130,8 +128,10 @@ export async function getSessionSummaries(): Promise<SessionSummary[]> {
       completedAt: session.completed_at as string,
       setsDone,
       averageRir: rirCount > 0 ? rirTotal / rirCount : null,
-      loadsIncreased,
-      biggestGain,
+      // Largest increase first: if only one line is shown collapsed, it should
+      // be the one worth showing.
+      gains: gains.sort((a, b) => b.to - b.from - (a.to - a.from)),
+      loadsIncreased: gains.length,
       // Pain is counted across the whole session, warm-ups included: a flag
       // raised during a warm-up is still a flag.
       painFlags: session.session_exercises.filter((se) => se.pain_severity != null)
