@@ -242,3 +242,239 @@ rep-target edit looks identical to a repoint. Confirm each hit against session n
 against the surviving `user_exercise_progress` row for the suspected original exercise —
 progress rows are written at log time and survive later repointing, which is what made
 three of the four 2026-08-05 identifications provable rather than guessed.
+
+---
+
+## Rest is resolved per-slot, not per-exercise
+
+**The rule:** read a rest value as `coalesce(template_exercises.rest_seconds,
+exercises.rest_seconds)`. Never read `exercises.rest_seconds` alone, and set the per-slot
+column — not the global one — whenever a value is specific to one role or one athlete.
+
+**The mechanism.** Both columns are live: `exercises.rest_seconds integer null` is the
+per-exercise default, `template_exercises.rest_seconds smallint null` is the per-slot
+override. Resolution happens in application code, not in a view or a function.
+`src/lib/session-detail.ts` selects `rest_seconds` from both tables and collapses them where
+it builds each `ExerciseCard`. It resolves against the snapshotted identity from
+`session_exercises`, falling back to the template join, so rest resolves against the exercise
+the session actually recorded. The single resolved number then feeds two consumers that
+behave differently: `formatRest` in `src/lib/rest.ts` renders the label, and `startRestTimer`
+in `src/app/session/[id]/session-view.tsx` runs the countdown, returning early when the
+resolved value is null. Both column comments state this rule; read them before touching
+either.
+
+**Null on the two sides means different things, and only one is healthy.** Null on
+`template_exercises.rest_seconds` means "inherit the exercise default" — the normal state for
+the **12 of 84** active slots that legitimately want the global value. Null on *both* is a
+gap, not a valid state for any slot: `formatRest` returns null, no rest line renders, and
+`startRestTimer` never fires. Every exercise gets a timer, warm-ups included; there is no
+slot type for which "no rest guidance" is the intended design. All 84 slots across both
+athletes' active blocks currently resolve to a value — **zero nulls**. Treat any null-on-both
+as a bug to fill.
+
+**Do not drop `exercises.rest_seconds`.** It is not vestigial; it is still authoritative as
+the fallback and supplies the resolved value for those 12 slots. Dropping it would force an
+override row on every slot, including the many that want the same number everywhere. The
+global column expresses "this movement usually rests this long"; the per-slot column
+expresses "in this slot it does not."
+
+**Why it matters more than it looks.** `exercises` rows are shared between athletes — eleven
+exercise ids appear in both CJ's and Betsy's templates, listed under *Exercise names are exact
+and case-sensitive*. Editing `exercises.rest_seconds` silently moves *both* athletes' timers.
+`template_exercises` is user-scoped through `template_blocks` → `workout_templates` →
+`mesocycles.user_id`, so an override reaches exactly one person. Per-slot and per-user are the
+same change.
+
+**What breaks if it's violated.** Nothing errors — the timer silently runs the wrong duration.
+Worse, the label and countdown can disagree: `formatRest` returns the
+`Alternate A1/A2 · ~60–90s` string for any superset member and ignores the number entirely,
+while `startRestTimer` uses the number. `B-stance / single-leg RDL (heavier)` displayed
+`~60–90s` while counting down **150s**, because its `exercises.rest_seconds` carried the
+primary-lift value and it sits in a superset. It now carries a slot override of 75 against a
+global default of 150.
+
+**This already happened, and the athlete found it before the schema did.** No data was
+corrupted and there is no repair migration. It surfaced through session notes between
+2026-08-07 and 2026-08-15: "Needs timer" (`Barbell Hip Thrust`, null), "No timer after"
+(`Seated Leg Curl`, null), "Add timer to this one" (`45-Degree Back Extension`, null), "Timer
+is very long" (`B-stance / single-leg RDL (heavier)`, 150 in a superset). On 2026-08-12 CJ
+wrote the diagnosis directly: *"Alternative is to attach the timer to the set type instead of
+the exercise."*
+
+**Status: APPLIED REMOTELY**, across six migrations. `20260815060336`
+(`add_template_exercises_rest_seconds`) added the column and set the first 15 overrides;
+`20260815064057` (`seed_betsy_block_c_rest_seconds`) covered Betsy's slots; `20260815064305`
+(`fill_remaining_null_rest_seconds`) closed the last 38; `20260815064442` and `20260815064450`
+replaced both column comments; `20260815064923` (`fix_cj_primary_slot_rest_overrides`)
+corrected two Primary slots. **72 of 84** active slots now carry an explicit override.
+
+| resolved | slots | where |
+|---|---|---|
+| `30` | 37 | warm-up circuit — every `template_blocks.type = 'circuit'` row |
+| `45` | 23 | isolation / core / pump |
+| `75` | 9 | 6 superset members + 3 `single` slots (all Betsy's) |
+| `90` | 8 | secondary compound |
+| `150` | 7 | primary heavy compound — all four of CJ's `Primary` slots, plus Betsy's Day 1, 3 and 4 first slots |
+
+Betsy's Day 2 first slot is `Lat Pulldown (shoulder-width)` at 90, and that is correct: a
+pulldown is not a heavy compound, and her blocks carry no role labels, so "first slot" is not
+the same as "primary tier."
+
+**Auditing rest requires two checks, not one.** Completeness and correctness are different
+properties, and checking only the first is how wrong values survive.
+
+1. Does every slot resolve to a value?
+2. Does each resolved value match the slot's *role*?
+
+Check 1 passing means no timer is missing. It says nothing about whether the timer is right.
+A slot inheriting a global default is indistinguishable from one carrying a deliberate
+override unless you look at **which column supplied the number**. After
+`fill_remaining_null_rest_seconds` closed the last 38 nulls, two of CJ's four `Primary` slots
+still resolved to 75 by inheriting a superset-tier `exercises.rest_seconds` default — the DB
+bench slot being the exact one that prompted CJ's 2026-08-12 note. Filling nulls made the
+defect invisible rather than fixing it: no longer missing, just wrong.
+
+The audit query must surface which column supplied the value — select `te.rest_seconds` and
+`e.rest_seconds` separately alongside the `coalesce`, plus `target_rir_low` and `auto_load`.
+A working slot (`target_rir_low = 1`, `auto_load = true`) resolving through the exercise
+default rather than a slot override is the pattern to inspect: nobody decided that number for
+that slot. Like the repoint detector above, this flags candidates, not verdicts — CJ's Day 3
+`Primary` (`Rear-foot-elevated split squat`) inherits its 150 from the global row and is
+correct as it stands.
+
+**The two Primary overrides are load-bearing.** `Neutral-grip DB bench / low incline` (Day 2)
+and `Neutral-grip pull-up` (Day 4) each carry an explicit `template_exercises.rest_seconds =
+150` even though 150 is already the primary tier. Their `exercises.rest_seconds` is still
+`75`, so deleting the override drops both back to 75 and silently restores the original
+defect. `20260815064923` fixed them per-slot rather than by editing the shared global row —
+which is the pattern this entry prescribes.
+
+---
+
+## `session_exercises` is write-restricted
+
+**The rule:** never `UPDATE session_exercises.exercise_id`. The app may write only `done`,
+`pain_severity`, and `note` on this table.
+
+**The mechanism is grants and a trigger — not the RLS policy.** Three layers stack, and only
+one is RLS. The row policy is `FOR ALL` and **unchanged**; it decides *which rows* — the
+session must belong to `auth.uid()`. Column-level `GRANT` decides *which columns*:
+`authenticated` and `anon` hold `UPDATE` on exactly `done, note, pain_severity`, while
+`SELECT` and `INSERT` still cover all seven columns. Above both, the trigger
+`session_exercises_forbid_repoint` (`BEFORE UPDATE ... FOR EACH ROW`) calls
+`forbid_session_exercise_repoint()`, which raises whenever `new.exercise_id is distinct from
+old.exercise_id`.
+
+**Why both.** Column grants do not restrain `service_role` or `postgres`, and this file
+already records that the original contamination arrived via **service role / MCP**, i.e.
+migration authoring — a human or model writing SQL directly. That is the one route grants
+cannot reach, so the trigger covers it. The grant covers the client cheaply, with no per-row
+cost.
+
+**What a violation produces — it errors, it does not corrupt.** A client `UPDATE` touching a
+non-granted column fails with a permission-denied error, surfaced by PostgREST as a 403; the
+write does not partially apply. A repoint from any role, `service_role` included, aborts the
+statement with `forbid_session_exercise_repoint()`'s message, which names the row id and
+states that changing it would relabel the session and merge it into another exercise's chart
+series.
+
+**Escape hatch**, for deliberate history repair — identical in shape to
+`template_exercises_forbid_repoint`, and sharing the same GUC so one override covers a repair
+that must touch both tables:
+
+```sql
+begin;
+  set local app.allow_exercise_repoint = 'on';
+  -- repoint here
+commit;
+```
+
+`set local` is transaction-scoped and cannot leak.
+
+**Why this column is worth guarding.** `session_exercises.exercise_id` is the snapshotted
+identity that `src/lib/history.ts` reads in both `getWeightHistory` — keying its series map on
+`exercise.id` — and `getPainTimeline`, and that `complete_session` joins on to resolve the
+progression write-back target. Rewriting one row silently moves a session's sets into a
+different chart series, and can move a `user_exercise_progress.current_weight` onto the wrong
+lift, which then becomes next session's suggested weight. Nothing errors; the numbers change
+meaning.
+
+**This is preventive — there was no `session_exercises` incident.** Do not read the 2026-08-05
+event into this entry. That corruption came through `template_exercises.exercise_id` and was
+repaired in `20260815043113`. This guard closes the *symmetric* hole that opened the moment
+`session_exercises.exercise_id` became history-bearing: the same damage, reached from the
+other side.
+
+**Status: APPLIED REMOTELY as `20260815060545`** (`restrict_session_exercises_updates`).
+
+**Still outstanding, and deliberately so.** `INSERT` still grants `exercise_id`, and the
+trigger is `BEFORE UPDATE` only — it does not guard `INSERT`. In practice `start_session()` is
+the only insert path and the RLS `WITH CHECK` still requires the session to belong to the
+caller, so a fabricated row cannot be attached to someone else's session; but a client could
+in principle insert into its own session with an arbitrary `exercise_id`. Note also the
+fail-closed consequence: **any column added to this table in future is not updatable by the
+client until explicitly granted** — the right default for a table that stores history, but it
+will look like a bug to whoever adds the next column.
+
+**Supersedes `## Planned: session_exercises.exercise_id (not yet implemented)`.** That
+section's heading is now false — the snapshot landed in `20260815052833`, `20260815052849` and
+`20260815060144`, and `session_exercises` currently holds 357 rows with 0 null `exercise_id`.
+Its body is still worth reading, particularly the closing note that the column would look
+redundant once it landed. The retitle is deferred to keep this change append-only; do it in a
+follow-up, not here.
+
+---
+
+## `log_type` is per-exercise but role-dependent
+
+**The rule:** before changing `exercises.log_type`, check every slot that exercise occupies —
+the column is global, and the same movement can be a loaded accessory in one slot and an
+unloaded primer in another.
+
+**This is the same shape of problem as `rest_seconds`.** `exercises.log_type` is `not null` on
+the global row; there is **no** `log_type` column on `template_exercises` or on
+`session_exercises`. Three exercises currently occupy both circuit and working slots:
+
+| exercise | circuit slots | working slots | current `log_type` |
+|---|---|---|---|
+| `Banded X-Walks / Lateral Band Walks` | 8 | 1 | `done_check` |
+| `Band/Cable Pull-Apart` | 4 | 1 | `done_check_weight` |
+| `Prone Bench Y-T-W Raises` | 1 | 1 | `done_check_weight` |
+
+**Two things currently keep it latent, and neither is a fix.** First, all three working slots
+sit in Betsy's archived `Block B — Weeks 8-14`; no working slot for any of the three is in an
+active block. Second, `done_check_weight` degrades gracefully in both contexts where
+`sets_weight` does not: `ExerciseCardView` treats anything other than `done_check` as weighted
+and renders full per-set reps and weight inputs, while `CircuitRow` renders a compact weight
+box for `done_check_weight` specifically. `done_check_weight` is the only value that renders
+sensibly on both sides of the block-type divide, which is why it was the correct fix rather
+than a workaround. Neither fact survives a future block that reuses one of these as a working
+accessory.
+
+**What breaks if it's violated.** No error — the input simply does not render, so the load is
+silently uncapturable and the set records `actual_weight = null` forever. Nothing warns, and
+no history view distinguishes "never loaded" from "load not recordable".
+
+**This already happened, and produced no bad data only by luck.** On 2026-08-15, `Prone Bench
+Y-T-W Raises` and `Band/Cable Pull-Apart` were found in Block C warm-up circuits with
+`log_type = 'sets_weight'`, which `CircuitRow` renders no weight input for at all. They were
+not typos: in Block B both were working accessories in a `single` block with real seed weights,
+where `sets_weight` was correct — and because `log_type` lives on `exercises`, that setting
+followed them into the warm-up when Block C reused the same rows. No load was lost, because none
+was ever captured: `Prone Bench Y-T-W Raises` has no logged sets at all, and `Band/Cable
+Pull-Apart` has 8 set rows carrying zero recorded weights and zero recorded reps — which is
+the silent failure this entry describes, not evidence that it did not happen. There is no
+repair migration.
+
+**Status: the immediate fix is APPLIED REMOTELY as `20260815060522`**
+(`fix_circuit_log_type_for_warmup_raises`), which set both to `done_check_weight`, matching
+`Cable external rotation` — the other loaded warm-up, also `target_sets = 2` in a circuit. No
+circuit row anywhere remains on `sets_weight`. Teaching `CircuitRow` to render `sets_weight`
+was rejected: it renders the first set only, by design, so a 2-set row would have shown one
+input and silently discarded set 2 — a fix that looks like a fix and loses data.
+
+**The durable fix is PLANNED and not applied.** A nullable `template_exercises.log_type`
+override, resolved as `coalesce(te.log_type, e.log_type)`, exactly mirroring the `rest_seconds`
+pattern in `20260815060336`. Until it lands, `exercises.log_type` carries the same
+cross-athlete coupling as `rest_seconds` did: it is a shared-row column, so changing it for one
+athlete's slot changes it for the other's.
