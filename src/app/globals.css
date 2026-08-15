@@ -3,6 +3,11 @@
 /*
  * Design tokens ported from the daily-page wireframe so Tailwind utilities
  * (bg-card, text-ink, border-line, rounded-card, …) match the intended look.
+ *
+ * The values here are the LIGHT palette and the source of the utility names.
+ * Dark values are re-declared further down; nothing but the numbers changes, so
+ * every component that already speaks in tokens follows automatically — the
+ * weight chart, for one, needs no dark-mode code at all.
  */
 @theme {
   --color-ink: #1c1c1e;
@@ -20,9 +25,87 @@
   --color-good: #2f7150;
   --color-good-bg: #e6f0ea;
 
+  /*
+   * Foregrounds for the two solid fills.
+   *
+   * `--color-ink` does double duty: primary text AND the fill of solid buttons.
+   * That is fine until dark mode inverts it — a hardcoded `text-white` on a
+   * `bg-ink` button becomes white-on-white the moment ink turns pale. These
+   * tokens are the contrasting side of each fill and flip with it, so a solid
+   * button stays readable in both themes without any per-component branching.
+   */
+  --color-on-ink: #ffffff;
+  --color-on-amber: #ffffff;
+
   --radius-card: 12px;
 
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/*
+ * Dark palette.
+ *
+ * Declared twice on purpose, and the duplication is the point:
+ *
+ *   - `[data-theme="dark"]`  — an explicit choice, which must beat the device.
+ *   - `prefers-color-scheme` under `[data-theme="system"]` — the default, which
+ *     must follow the device.
+ *
+ * Scoping the media query to `system` is what makes "light" a real override:
+ * without it, a user who picks light on a dark phone gets overruled by their OS.
+ *
+ * `data-theme` is server-rendered onto <html>, so the correct palette is present
+ * in the first byte of HTML. There is no client-side flip and therefore no white
+ * flash — which is the whole reason this is CSS and not a useEffect.
+ */
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    --color-ink: #f1f1f4;
+    --color-ink-2: #a2a2aa;
+    --color-ink-3: #78787f;
+    --color-line: #35353c;
+    --color-line-2: #2a2a30;
+    --color-bg: #0f0f11;
+    --color-card: #1a1a1e;
+    --color-field: #232328;
+    --color-amber: #d99f45;
+    --color-amber-bg: #3a2e1a;
+    --color-good: #63b98d;
+    --color-good-bg: #1b3227;
+    --color-on-ink: #131316;
+    --color-on-amber: #1e1608;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-ink: #f1f1f4;
+  --color-ink-2: #a2a2aa;
+  --color-ink-3: #78787f;
+  --color-line: #35353c;
+  --color-line-2: #2a2a30;
+  --color-bg: #0f0f11;
+  --color-card: #1a1a1e;
+  --color-field: #232328;
+  --color-amber: #d99f45;
+  --color-amber-bg: #3a2e1a;
+  --color-good: #63b98d;
+  --color-good-bg: #1b3227;
+  --color-on-ink: #131316;
+  --color-on-amber: #1e1608;
+}
+
+/*
+ * Tell the browser which scheme is in play so form controls, scrollbars and
+ * the like are themed natively rather than staying stubbornly light.
+ */
+:root[data-theme="system"] {
+  color-scheme: light dark;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 html {

@@ -37,7 +37,7 @@ export function BlockSwitcher({
               <span
                 key={m.id}
                 aria-current="true"
-                className="flex-1 rounded-lg border border-ink bg-ink px-3 py-2 text-center text-[12px] font-semibold text-white"
+                className="flex-1 rounded-lg border border-ink bg-ink px-3 py-2 text-center text-[12px] font-semibold text-on-ink"
               >
                 {m.name}
               </span>
@@ -85,7 +85,7 @@ export function BlockSwitcher({
               <input type="hidden" name="mesocycleId" value={pending.id} />
               <button
                 type="submit"
-                className="rounded-lg bg-ink px-3 py-1.5 text-[12px] font-semibold text-white"
+                className="rounded-lg bg-ink px-3 py-1.5 text-[12px] font-semibold text-on-ink"
               >
                 Switch block
               </button>

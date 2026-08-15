@@ -385,14 +385,17 @@ export type Database = {
       user_settings: {
         Row: {
           active_mesocycle_id: string | null
+          theme: Database["public"]["Enums"]["theme_preference"]
           user_id: string
         }
         Insert: {
           active_mesocycle_id?: string | null
+          theme?: Database["public"]["Enums"]["theme_preference"]
           user_id: string
         }
         Update: {
           active_mesocycle_id?: string | null
+          theme?: Database["public"]["Enums"]["theme_preference"]
           user_id?: string
         }
         Relationships: [
@@ -478,6 +481,7 @@ export type Database = {
         | "rotator_cuff"
       pain_severity: "mild" | "sharp"
       session_status: "in_progress" | "completed"
+      theme_preference: "system" | "light" | "dark"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -642,6 +646,7 @@ export const Constants = {
       ],
       pain_severity: ["mild", "sharp"],
       session_status: ["in_progress", "completed"],
+      theme_preference: ["system", "light", "dark"],
     },
   },
 } as const
