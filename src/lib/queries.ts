@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/auth/session";
+import type { Database } from "@/lib/supabase/database.types";
 
 /**
  * The training blocks (mesocycles) the current user can see, in order. RLS
@@ -70,6 +71,23 @@ export async function getActiveMesocycleId(): Promise<string> {
   }
 
   return first.id;
+}
+
+export type ThemePreference = Database["public"]["Enums"]["theme_preference"];
+
+/**
+ * The user's theme preference, read on the server so the first paint is already
+ * correct.
+ *
+ * Never throws and never redirects: the root layout renders for signed-out
+ * visitors too (the login screen), and a theme lookup is not a reason to fail a
+ * page. Anything unexpected falls back to 'system', which defers to the device
+ * — the same thing a brand-new user gets.
+ */
+export async function getThemePreference(): Promise<ThemePreference> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("user_settings").select("theme").maybeSingle();
+  return data?.theme ?? "system";
 }
 
 /** The day-templates for one training block, in program order. */

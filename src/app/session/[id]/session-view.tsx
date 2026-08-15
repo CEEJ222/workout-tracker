@@ -258,7 +258,7 @@ export function SessionView({ detail }: { detail: SessionDetail }) {
             <input type="hidden" name="sessionId" value={detail.id} />
             <button
               type="submit"
-              className="w-full rounded-card bg-ink py-3.5 text-[15px] font-semibold text-white active:opacity-90"
+              className="w-full rounded-card bg-ink py-3.5 text-[15px] font-semibold text-on-ink active:opacity-90"
             >
               Complete workout
             </button>
@@ -286,7 +286,7 @@ export function SessionView({ detail }: { detail: SessionDetail }) {
       )}
 
       {saveError && (
-        <div className="sticky bottom-0 bg-amber px-4 py-2 text-center text-[12px] text-white">
+        <div className="sticky bottom-0 bg-amber px-4 py-2 text-center text-[12px] text-on-amber">
           Couldn&rsquo;t save a change — check your connection.
         </div>
       )}
@@ -724,7 +724,7 @@ function ExerciseCardView({
                   onClick={() => handlers.setPain(card, sev)}
                   className={`flex-1 rounded-lg border py-1.5 text-[12px] capitalize ${
                     ex.pain === sev
-                      ? "border-amber bg-amber text-white"
+                      ? "border-amber bg-amber text-on-amber"
                       : "border-line bg-field text-ink-2"
                   }`}
                 >
@@ -793,7 +793,7 @@ function DoneBox({
       onClick={onToggle}
       className={`mx-auto flex items-center justify-center rounded-[7px] border text-[14px] ${
         small ? "h-5 w-5" : "h-6 w-6"
-      } ${checked ? "border-ink bg-ink text-white" : "border-line text-transparent"}`}
+      } ${checked ? "border-ink bg-ink text-on-ink" : "border-line text-transparent"}`}
     >
       ✓
     </button>
@@ -933,7 +933,7 @@ function RestTimerBar({
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-center px-3 pb-3">
       <div
         className={`pointer-events-auto flex w-full max-w-[420px] items-center gap-3 rounded-card border px-4 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.18)] ${
-          done ? "border-amber bg-amber text-white" : "border-line bg-card"
+          done ? "border-amber bg-amber text-on-amber" : "border-line bg-card"
         }`}
         role="status"
         aria-live="polite"
@@ -941,14 +941,14 @@ function RestTimerBar({
         <div className="min-w-0 flex-1">
           <div
             className={`text-[10px] uppercase tracking-[0.08em] ${
-              done ? "text-white/80" : "text-ink-3"
+              done ? "text-on-amber/80" : "text-ink-3"
             }`}
           >
             {done ? "Rest's up" : "Resting"} · {exerciseName}
           </div>
           <div
             className={`font-mono text-[22px] font-semibold leading-tight tabular-nums ${
-              done ? "text-white" : "text-ink"
+              done ? "text-on-amber" : "text-ink"
             }`}
           >
             {formatClock(remaining)}
@@ -959,7 +959,7 @@ function RestTimerBar({
           onClick={onReset}
           className={`rounded-lg border px-3 py-1.5 text-[12px] font-medium ${
             done
-              ? "border-white/60 text-white"
+              ? "border-on-amber/60 text-on-amber"
               : "border-line bg-field text-ink-2"
           }`}
         >
@@ -969,7 +969,7 @@ function RestTimerBar({
           type="button"
           onClick={onDismiss}
           className={`rounded-lg border px-3 py-1.5 text-[12px] font-medium ${
-            done ? "border-white bg-white text-amber" : "border-ink bg-ink text-white"
+            done ? "border-on-amber bg-on-amber text-amber" : "border-ink bg-ink text-on-ink"
           }`}
         >
           {done ? "Dismiss" : "Skip"}

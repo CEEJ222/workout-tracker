@@ -59,7 +59,7 @@ function SeverityBadge({ severity }: { severity: "mild" | "sharp" }) {
   return (
     <span
       className={`rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.04em] ${
-        sharp ? "bg-amber text-white" : "bg-amber-bg text-amber"
+        sharp ? "bg-amber text-on-amber" : "bg-amber-bg text-amber"
       }`}
     >
       {severity}

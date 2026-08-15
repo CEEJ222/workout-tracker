@@ -8,9 +8,11 @@ import {
   getWorkoutPlan,
   getLastWorkout,
   getInProgressSessions,
+  getThemePreference,
   rankDays,
   type DayRotation,
 } from "@/lib/queries";
+import { ThemeToggle } from "@/app/theme-toggle";
 import { startSession } from "@/app/actions/session";
 import { DiscardButton } from "@/app/discard-button";
 import { BlockSwitcher } from "@/app/block-switcher";
@@ -18,10 +20,11 @@ import { DayPicker, type PickerDay } from "@/app/day-picker";
 
 export default async function Home() {
   await requireUser();
-  const [mesocycles, activeMesocycleId, inProgress] = await Promise.all([
+  const [mesocycles, activeMesocycleId, inProgress, theme] = await Promise.all([
     getMesocycles(),
     getActiveMesocycleId(),
     getInProgressSessions(),
+    getThemePreference(),
   ]);
 
   // The active block's days — however many it has. Block A ran 3, Block C runs
@@ -69,6 +72,7 @@ export default async function Home() {
           </h1>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          <ThemeToggle current={theme} />
           <Link
             href="/history"
             className="rounded-lg border border-line bg-field px-2.5 py-1.5 text-[12px] text-ink-2"
@@ -201,7 +205,7 @@ export default async function Home() {
                 <input type="hidden" name="templateId" value={recommended.id} />
                 <button
                   type="submit"
-                  className="w-full rounded-lg bg-ink px-4 py-3 text-[15px] font-semibold text-white active:opacity-90"
+                  className="w-full rounded-lg bg-ink px-4 py-3 text-[15px] font-semibold text-on-ink active:opacity-90"
                 >
                   Start workout
                 </button>
