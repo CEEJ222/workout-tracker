@@ -4,7 +4,8 @@
 
 These notes exist because the constraints encode *what* is enforced but not *why*.
 Each item below records a decision that looks redundant or removable until you know
-the incident behind it. Append this to `CLAUDE.md`.
+the incident behind it.
+
 ---
 ## Never repoint `template_exercises.exercise_id` on a row with history
 
@@ -30,6 +31,7 @@ Seated Leg Curl. It surfaced as a nonsensical weight chart — a line dropping f
 is `ON DELETE NO ACTION`, so a template row with history *cannot* be deleted. With no
 delete and no retire flag, `UPDATE exercise_id` was the only way to get an exercise out
 of a block. The schema funnelled toward the destructive path.
+
 ---
 ## Why `template_exercises.retired_at` exists
 
@@ -45,6 +47,7 @@ healthy state. It exists so that the correct workflow is available at the moment
 someone needs it.
 
 Added in `20260815043900`.
+
 ---
 ## Why the `template_exercises_forbid_repoint` trigger exists
 
@@ -73,6 +76,7 @@ enforcement — far too much collateral for a targeted override.
 `20260805054000`) will not fail on a fresh replay: sessions are user data and don't
 exist in migrations, so those rows have no history at replay time and the trigger
 never fires.
+
 ---
 ## Planned: `session_exercises.exercise_id` (not yet implemented)
 
@@ -91,6 +95,7 @@ Requires frontend work: `start_session` populates it, `history.ts` and
 **When it lands, it will look redundant.** It is not. It is what makes history
 structurally independent of template mutation. The trigger prevents the bad write;
 this makes the bad write harmless.
+
 ---
 ## Weights are logged as TOTAL weight moved
 
@@ -115,6 +120,7 @@ and first `cues` entry so it surfaces in the log UI.
 
 **Pre-cutover history is mixed-convention** and must not be compared across the
 boundary — CJ before 2026-07-10, Betsy before Block C.
+
 ---
 ## `increment_lb` is a snapshot, not a rule
 
@@ -135,6 +141,16 @@ the step computed in the auto-load resolver. Not yet done.
 
 Auto-load has already walked weights to values that don't exist on any rack (52.5, 82.5,
 12.5); those were snapped in `20260815033419`.
+
+**A second reason it is inadequate: it is global.** `increment_lb` lives on the
+`exercises` row, and that row is shared wherever two users reach the same exercise — see
+*Exercise names are exact and case-sensitive*. So it physically cannot hold different rack
+steps for two athletes on the same lift. CJ and Betsy both work off 5 lb racks, so every
+shared row currently carries one value that is right for both: this is latent, not broken.
+But it means the durable fix is probably not `exercises.db_count` alone — `increment_lb`
+likely has to move to `template_exercises`, which is user-scoped through its template. Same
+argument as the pending `rest_seconds` move.
+
 ---
 ## Exercise names are exact and case-sensitive
 
@@ -175,6 +191,16 @@ a shared exercise still tracks separate loads per user. CJ's Barbell Hip Thrust 
 them affects **both** users. This is the reason `rest_seconds` is moving to
 `template_exercises`, which is user-scoped via its template.
 
+**And the shared set is not just warm-ups** — which is what makes shared config genuinely
+dangerous rather than cosmetic. Six of the eleven shared rows are loaded working lifts
+carrying live auto-load config right now: 45-Degree Back Extension, Barbell Hip Thrust,
+Cable Curl (straight or EZ bar), Cable Triceps Pushdown (rope), and Seated Leg Curl at
+`increment_lb` 5, plus Standing Calf Raise at 10 — which is also the only shared row with
+a non-null `rest_seconds` (45). Changing `rest_seconds` or `increment_lb` on any of those
+changes it for **both athletes, mid-block**. The other five shared rows (Banded X-Walks,
+Dynamic leg swings, Easy cardio raise, Reverse Pec Deck (rear delt), Wall slide) carry no
+auto-load config, so those are the harmless case.
+
 ---
 ## Read before write
 
@@ -187,6 +213,7 @@ Migrations applied via MCP `apply_migration` self-stamp their own remote version
 timestamp, which differs from any local filename. This is harmless for this project
 (it does not use `supabase db push`) but means version-based reconciliation will report
 drift.
+
 ---
 ## Detecting repoint damage
 
