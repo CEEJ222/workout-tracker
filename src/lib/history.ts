@@ -3,34 +3,10 @@ import type { Database } from "@/lib/supabase/database.types";
 
 type PainSeverity = Database["public"]["Enums"]["pain_severity"];
 
-export type CompletedSession = {
-  id: string;
-  templateName: string;
-  completedAt: string;
-  exercisesLogged: number;
-  painFlags: number;
-};
-
-/** Completed sessions, most recent first, with a quick summary. */
-export async function getCompletedSessions(): Promise<CompletedSession[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("sessions")
-    .select(
-      "id, completed_at, workout_templates(name), session_exercises(done, pain_severity)",
-    )
-    .eq("status", "completed")
-    .order("completed_at", { ascending: false });
-  if (error) throw error;
-
-  return (data ?? []).map((s) => ({
-    id: s.id,
-    templateName: s.workout_templates?.name ?? "Workout",
-    completedAt: s.completed_at ?? "",
-    exercisesLogged: s.session_exercises.filter((e) => e.done).length,
-    painFlags: s.session_exercises.filter((e) => e.pain_severity != null).length,
-  }));
-}
+// getCompletedSessions lived here and returned a thinner summary (logged count
+// + pain flags). It is gone: the session list now renders the same card as the
+// homepage, so both read from `getSessionSummaries`, and keeping a second,
+// slightly-different summary around is how the two drift apart.
 
 export type WeightSeries = {
   exerciseId: string;

@@ -17,6 +17,7 @@ import { startSession } from "@/app/actions/session";
 import { DiscardButton } from "@/app/discard-button";
 import { BlockSwitcher } from "@/app/block-switcher";
 import { DayPicker, type PickerDay } from "@/app/day-picker";
+import { SessionSummaryCard, Stat } from "@/app/session-summary-card";
 
 export default async function Home() {
   await requireUser();
@@ -218,59 +219,15 @@ export default async function Home() {
             <div className="mx-1.5 text-[11px] uppercase tracking-[0.06em] text-ink-3">
               Your last workout
             </div>
-            <div className="rounded-card bg-card px-4 py-4">
-              <div className="flex items-baseline justify-between gap-3">
-                <div className="min-w-0 text-[15px] font-medium text-ink">
-                  {splitName(lastWorkout.dayName)[1]}
-                </div>
-                <div className="shrink-0 text-[12px] text-ink-3">
-                  {relativeDay(lastWorkout.completedAt)}
-                </div>
-              </div>
-
-              {/* Backward-looking counterpart to the next-up stats. No duration:
-                  see getLastWorkout. */}
-              <div className="mt-3.5 flex gap-7 border-t border-line pt-3.5">
-                <Stat value={lastWorkout.setsDone} label="sets" />
-                <Stat
-                  value={
-                    lastWorkout.averageRir != null
-                      ? lastWorkout.averageRir.toFixed(1)
-                      : "—"
-                  }
-                  label="avg RIR"
-                />
-                <Stat
-                  value={lastWorkout.loadsIncreased}
-                  label={lastWorkout.loadsIncreased === 1 ? "load up" : "loads up"}
-                />
-              </div>
-
-              {/* Load direction is one of the two things colour is spent on, so
-                  it goes on the numerals themselves — not a tinted panel behind
-                  them. The exercise name stays neutral: it isn't the signal. */}
-              {lastWorkout.biggestGain && (
-                <div className="mt-3 text-[12px] text-ink-2">
-                  <span className="text-ink">
-                    {lastWorkout.biggestGain.exerciseName}
-                  </span>{" "}
-                  <span className="tabular-nums text-up">
-                    {formatWeight(lastWorkout.biggestGain.from)} →{" "}
-                    {formatWeight(lastWorkout.biggestGain.to)} lb
-                  </span>
-                </div>
-              )}
-
-              {/* "View session", not "repeat": offering to redo the last
-                  workout would pull against the rotation the hero just
-                  recommended. */}
-              <Link
-                href={`/session/${lastWorkout.sessionId}`}
-                className="mt-4 block w-full rounded-lg border border-line px-4 py-2.5 text-center text-[13px] text-ink-2"
-              >
-                View session
-              </Link>
-            </div>
+            {/* "View session", not "repeat": offering to redo the last workout
+                would pull against the rotation the hero just recommended. The
+                date reads relative here — "yesterday" is the useful framing
+                when there is only one of these on screen. */}
+            <SessionSummaryCard
+              summary={lastWorkout}
+              dateLabel={relativeDay(lastWorkout.completedAt)}
+              actionLabel="View session"
+            />
           </section>
         )}
 
@@ -292,28 +249,6 @@ export default async function Home() {
             bare count with no exercise names is not something anyone can act
             on. Left out rather than shipped misleading. */}
       </main>
-    </div>
-  );
-}
-
-/**
- * A number and what it counts. Numbers are the interface here, so the value
- * leads at 18px in primary text and the label sits under it, small and muted —
- * hierarchy from size and weight rather than from colour.
- */
-function Stat({
-  value,
-  label,
-}: {
-  value: string | number;
-  label: string;
-}) {
-  return (
-    <div className="min-w-0">
-      <div className="truncate text-[18px] font-medium leading-tight tabular-nums text-ink">
-        {value}
-      </div>
-      <div className="mt-0.5 truncate text-[12px] text-ink-3">{label}</div>
     </div>
   );
 }
