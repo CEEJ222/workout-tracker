@@ -95,7 +95,7 @@ export async function getSessionDetail(
            template_exercises (
              id, pair_label, target_sets, target_reps_low, target_reps_high,
              target_rir_low, target_rir_high, rest_seconds,
-             per_side, seed_weight, seed_is_estimate, sort_order,
+             per_side, seed_weight, seed_is_estimate, sort_order, retired_at,
              exercises ( id, name, description, cues, log_type, auto_load, rest_seconds )
            )`,
         )
@@ -132,6 +132,13 @@ export async function getSessionDetail(
     .map((block) => {
       const exercises: ExerciseCard[] = [...block.template_exercises]
         .sort((a, b) => a.sort_order - b.sort_order)
+        // A retired prescription (retired_at set) is hidden from FUTURE display,
+        // but only there: a session logged before the row was retired still has a
+        // session_exercise pointing at it, and that history must keep rendering
+        // with the correct label. So drop a retired row only when this session
+        // never logged it. Same principle as mesocycles.archived_at — retired
+        // hides from future prescription, never from past history.
+        .filter((te) => te.retired_at === null || seByTemplateExercise.has(te.id))
         .map((te) => {
           const se = seByTemplateExercise.get(te.id);
           // Prefer the identity snapshotted onto session_exercises at creation
